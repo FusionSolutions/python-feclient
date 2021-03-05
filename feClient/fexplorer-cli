@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+# Built in
+import os, sys, re, json, tempfile, logging, feClient
+from collections import OrderedDict
+# Program
+PUB_ENV_NAME = "FECLI_PUBKEY"
+SEC_ENV_NAME = "FECLI_SECKEY"
+DISCACHE_ENV_NAME = "FECLI_DISABLE_CACHE"
+STORAGE_FILE = "{}/fecliCache_{}.json".format(tempfile.gettempdir(), os.getppid())
+
+class CLIError(Exception): pass
+
+class LevelBitmask:
+	_data = OrderedDict()
+	@classmethod
+	def getBitmaskByName(self, name:str) -> int:
+		return self._data[name][0]
+	@classmethod
+	def get(self) -> list:
+		return self._data.items()
+	@classmethod
+	def parseByName(self, data:str) -> int:
+		r = 0
+		for name in data.split(","):
+			r |= self.getBitmaskByName(name)
+		return r
+
+class Parameters:
+	@staticmethod
+	def _bool(data):
+		if data == "1" or data.lower() == "true":
+			return True
+		elif data == "0" or data.lower() == "false":
+			return False
+		raise ValueError
+	@staticmethod
+	def _dict(data):
+		return json.loads(data)
+	@staticmethod
+	def _bytes(data):
+		if data[:2].lower() == "0x":
+			data = data[2:]
+		return bytes.fromhex(data)
+	@staticmethod
+	def _any(data):
+		return data
+	@staticmethod
+	def _bitmask(data):
+		if data.isdigit():
+			return int(data)
+		else:
+			try:
+				return LevelBitmask.parseByName(data)
+			except KeyError as err:
+				raise CLIError("Bitmask `{}` not found" .format(err))
+	@staticmethod
+	def _hex(data):
+		data = data.lower()
+		if data[:2] != "0x":
+			return "0x"+data
+		if not re.match("0x[0-9a-f]", data, re.I):
+			raise KeyError
+		return data
+	@classmethod
+	def parseType(self, name:str, typ:str) -> callable:
+		if name == "bitmask":
+			return self._bitmask
+		return {
+			"str":str,
+			"bytes":self._bytes,
+			"int":int,
+			"bool":self._bool,
+			"dict":self._dict,
+			"hex":self._hex,
+		}.get(typ, self._any)
+	@classmethod
+	def build(self, methodParams, args, kwargs):
+		ret = {}
+		for (name, typ, opt), arg in zip(methodParams, args):
+			ret[ name ] = self.parseType(name, typ)(arg)
+		for key, val in kwargs.items():
+			if key in ret:
+				raise CLIError("Duplicate parameter: {}".format(key))
+			for name, typ, opt in methodParams:
+				if name.lower() == key:
+					try:
+						ret[ name ] = self.parseType(name, typ)(val)
+					except CLIError as err:
+						raise err from None
+					except:
+						raise CLIError("Parsing input for parameter `{}` has been failed", name)
+					break
+			else:
+				raise CLIError("Unknown parameter: {}".format(key))
+		return ret
+
+__usage__ = """Fusion Explorer command line interface v{version}
+Copyright (C) 2021 Fusion Solutions KFT <contact@fusionsolutions.io>
+To get license use:
+  {selfName} --version
+
+Use optional environment keys {PUB_ENV_NAME} for public key and {SEC_ENV_NAME} for secret. If you use you need set both.
+  For set:
+	export {PUB_ENV_NAME}="YOUR_PUBLIC_KEY" {SEC_ENV_NAME}="YOUR_SECRET_KEY"
+  For unset:
+	unset {PUB_ENV_NAME} {SEC_ENV_NAME}
+
+Available bitmasks:
+{bitmasks}
+
+  Example usage: BLOCK_EXP,BLOCKLOGS_COUNT,TX_HASH,
+
+Method list and bitmask keys are downloaded from the server and are stored in {STORAGE_FILE} file for this session.
+To refresh the cache use:
+  {selfName} help
+To disable cache run:
+  export {DISCACHE_ENV_NAME}=1
+
+Usage:
+  {selfName} [--debug] METHOD [PARAMETERS]
+
+You can set every parameter as keyword parameter like `PARAMETER_NAME=VALUE` example:
+  {selfName} getBlockByHeight btc height=1 bitmask=BLOCK_EXP,TX_HASH
+
+Methods:"""
+
+def printResult(r):
+	if type(r) in [dict, list]:
+		print(json.dumps(r, indent=4, sort_keys=True, ensure_ascii=False))
+	else:
+		print(r)
+
+def main():
+	inputs = sys.argv[:]
+	selfName = os.path.basename(inputs.pop(0))
+	#
+	if "--version" in inputs:
+		return printResult(feClient.__doc__)
+	debugLogging = False
+	if "--debug" in inputs:
+		debugLogging = True
+		inputs.remove("--debug")
+	if inputs:
+		method = inputs.pop(0).lower()
+	else:
+		method = ""
+	args = []
+	kwargs = {}
+	for inp in inputs:
+		sepPos = inp.find("=")
+		if sepPos == -1:
+			if kwargs:
+				raise CLIError("Arguments must be in front of keyword arguments")
+			args.append(inp)
+		else:
+			kwargs[inp[:sepPos]] = inp[sepPos+1:]
+	#
+	logging.basicConfig(format='[%(levelname).3s][%(asctime)s][%(name)s]: %(message)s', level=logging.DEBUG if debugLogging else 100)
+	log = logging.getLogger("main")
+	with feClient.Client(os.getenv(PUB_ENV_NAME, None), os.getenv(SEC_ENV_NAME, None), hexNumbers=False, log=log) as c:
+		methods = {}
+		if os.getenv(DISCACHE_ENV_NAME, "0") != "1" and not (method == "help" and not args and not kwargs):
+			try:
+				methods, _bitmasks = json.load(open(STORAGE_FILE, 'rt'))
+				LevelBitmask._data = OrderedDict(_bitmasks)
+			except:
+				pass
+		if not methods:
+			response = c.request("getCLIData")
+			if not response.isSuccess():
+				raise CLIError("Loading method list failed")
+			_methods, _bitmasks = response.get()
+			for m in _methods:
+				methods[m["name"].lower()] = {
+					"name":m["name"],
+					"desc":m["desc"],
+					"parameters":[ [ param["name"], param["type"], param["optional"] ] for param in m["parameters"] ],
+				}
+			for n, d in _bitmasks:
+				LevelBitmask._data[n] = d
+			if not os.getenv(DISCACHE_ENV_NAME, False):
+				try:
+					json.dump((methods, list(LevelBitmask.get())), open(STORAGE_FILE, 'wt'))
+				except:
+					pass
+		#
+		if method in ["", "help"] and not args and not kwargs:
+			ret = [__usage__.format(
+				version=feClient.__version__,
+				PUB_ENV_NAME=PUB_ENV_NAME,
+				SEC_ENV_NAME=SEC_ENV_NAME,
+				STORAGE_FILE=STORAGE_FILE,
+				DISCACHE_ENV_NAME=DISCACHE_ENV_NAME,
+				selfName=selfName,
+				bitmasks="\n".join(
+					map(
+						lambda x: "{:<32}{}".format("  {0:>{stack}}{name}".format("", name=x[0], stack=x[1][1]*4), x[1][2]),
+						LevelBitmask.get()
+					)
+				),
+			)]
+			for name in sorted(methods.keys()):
+				m = methods[name]
+				ret.append(
+					"  {} {}\n      {}\n".format(
+						m["name"],
+						" ".join([
+							("{o1}({type}){name}{o2}").format(
+								type=typ.upper(),
+								name=name,
+								o1="[" if opt else "",
+								o2="]" if opt else ""
+							) for name,typ,opt in m["parameters"]
+						]),
+						m["desc"]
+					)
+				)
+			return printResult("\n".join(ret))
+		if method not in methods:
+			raise CLIError("Method not found. For list of methods use `{} help`".format(selfName))
+		response = c.request(
+			methods[method]["name"],
+			[],
+			Parameters.build(
+				methods[method]["parameters"],
+				args,
+				kwargs
+			),
+		)
+		if not response.isSuccess():
+			print("Request failed:")
+		c.close()
+		log.debug("RESPONSE UID: {}".format(response.getUID()))
+		return printResult(response.get())
+
+if __name__ == "__main__":
+	r = None
+	try:
+		main()
+		sys.exit(1)
+	except CLIError as err:
+		print("CLI ERROR: {}".format(err))
+	except feClient.Error as err:
+		printResult(err)
+	except KeyboardInterrupt:
+		print("Keyboard interrupt")
+	sys.exit(0)
