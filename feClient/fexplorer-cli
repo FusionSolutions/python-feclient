@@ -5,8 +5,10 @@ from collections import OrderedDict
 # Program
 PUB_ENV_NAME = "FECLI_PUBKEY"
 SEC_ENV_NAME = "FECLI_SECKEY"
-DISCACHE_ENV_NAME = "FECLI_DISABLE_CACHE"
-STORAGE_FILE = "{}/fecliCache_{}.json".format(tempfile.gettempdir(), os.getppid())
+SEC_ENV_NAME = "FECLI_SECKEY"
+CACHEPATH_ENV_NAME = "FECLI_CACHE_PATH"
+DISCACHE_ENV_NAME = "FECLI_CACHE_DISABLE"
+STORAGE_FILE = os.getenv(CACHEPATH_ENV_NAME, "{}/feclicache.json".format(tempfile.gettempdir()))
 
 class CLIError(Exception): pass
 
@@ -110,7 +112,9 @@ Available bitmasks:
 
   Example usage: BLOCK_EXP,BLOCKLOGS_COUNT,TX_HASH,
 
-Method list and bitmask keys are downloaded from the server and are stored in {STORAGE_FILE} file for this session.
+Method list and bitmask keys are downloaded from the server and are stored in {STORAGE_FILE} file.
+For overwrite cache location use:
+  export {CACHEPATH_ENV_NAME}="/absoluth/path/to/file"
 To refresh the cache use:
   {selfName} help
 To disable cache run:
@@ -191,6 +195,7 @@ def main():
 				SEC_ENV_NAME=SEC_ENV_NAME,
 				STORAGE_FILE=STORAGE_FILE,
 				DISCACHE_ENV_NAME=DISCACHE_ENV_NAME,
+				CACHEPATH_ENV_NAME=CACHEPATH_ENV_NAME,
 				selfName=selfName,
 				bitmasks="\n".join(
 					map(
