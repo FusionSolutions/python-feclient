@@ -45,7 +45,6 @@ def chunks(lst, n, pl):
 		sr.append(rl[i])
 		srl += len(rl[i])
 		if len(sr) == n or (len(rl)-1 > i and srl+len(rl[i+1])+len(sr) > pl):
-			# Uj chunk kell!
 			r.append(b"["+(b",".join(sr))+b"]")
 			srl = 2
 			sr = []

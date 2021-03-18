@@ -69,6 +69,21 @@ class ClientTest(unittest.TestCase):
 		d.do(fec)
 		del d
 		self.assertEqual( 0, len(list(fec.requests.itervaluerefs())) )
+	def test6(self):
+		fec = Client(log=logging.getLogger("test6.Client"), compression=False)
+		objs = [fec.request("ping"), fec.request("ping")]
+		fec.connect()
+		objs.append(fec.request("ping"))
+		fec.socket.close()
+		for obj in objs:
+			self.assertIs(type(obj.get()), int)
+	def test7(self):
+		fec = Client(log=logging.getLogger("test7.Client"), compression=False)
+		objs = [fec.request("ping"), fec.request("ping")]
+		fec.connect()
+		objs.append(fec.request("ping"))
+		for obj in objs:
+			self.assertIs(type(obj.get()), int)
 
 logging.basicConfig(format='[%(levelname).3s][%(asctime)s][%(name)s]: %(message)s', level=logging.INFO)
 unittest.main(verbosity=0)

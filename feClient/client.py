@@ -138,6 +138,8 @@ class Client:
 			return False
 		if id not in self.requests:
 			raise ResponseError("Unknown request ID: {}".format(id))
+		if not self.socket.isAlive():
+			raise SocketError("Not connected")
 		self.socket.loop(wh)
 		self._checkSocketError()
 		if id not in self.requests:
@@ -162,6 +164,7 @@ class Client:
 			except Exception as err:
 				lastErr = err
 				if isinstance(err, (SocketError, ResponseError)):
+					self.log.debug("Got error: {}".format(err))
 					if c > 0:
 						if c != self.retryCount:
 							sleep(self.retryDelay)
@@ -225,10 +228,8 @@ class Client:
 			raise RequestError("Request payload too long")
 		self.requests[id] = obj
 		self.log.info("Request queued: {} [{}]".format(method, id))
-		if not self.socket.isAlive():
-			self.socket.close()
-			self._tryAgain(self._connect, False)
-		self.socket.send(payload, self._createAuth(payload))
+		if self.socket.isAlive():
+			self.socket.send(payload, self._createAuth(payload))
 		return obj
 
 class Request:
