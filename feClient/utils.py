@@ -1,5 +1,6 @@
 # Builtin modules
 import zlib, signal, json
+from typing import Any, List
 # Local modules
 # Program
 class deflate:
@@ -9,6 +10,7 @@ class deflate:
 		r = o.compress(data)
 		r += o.flush()
 		return r
+	@staticmethod
 	def decompress(data:bytes) -> bytes:
 		o = zlib.decompressobj(-zlib.MAX_WBITS)
 		r = o.decompress(data)
@@ -16,19 +18,19 @@ class deflate:
 		return r
 
 class StopSignal:
-	_i = False
-	killed = False
+	_i:bool = False
+	killed:bool = False
 	@classmethod
-	def activate(self):
+	def activate(self) -> Any:
 		assert self._i == False, "Aleady initialized"
 		self._i = True
 		signal.signal(signal.SIGINT, self.kill)
 		return self
 	@classmethod
-	def kill(self, signum=None, frame=None):
+	def kill(self, signum:Any=None, frame:Any=None) -> None:
 		self.killed = True
 	@classmethod
-	def get(self):
+	def get(self) -> bool:
 		return self.killed
 
 def hexToBytes(data:str) -> bytes:
@@ -36,7 +38,7 @@ def hexToBytes(data:str) -> bytes:
 		data = data[2:]
 	return bytes.fromhex(data)
 
-def chunks(lst, n, pl):
+def chunks(lst:List[Any], n:int, pl:int) -> List[Any]:
 	r = []
 	rl = [ json.dumps(d).encode("utf8") for d in lst ]
 	sr = []

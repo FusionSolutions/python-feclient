@@ -55,12 +55,12 @@ Object sharing is **MAY NOT** safe for multi-threading/processing, do not share 
 
 ### Initialize Client
 ```python
-feClient.Client(projectPublicKey:str=None, projectSecretKey:str=None, hexNumbers:bool=False, connectTimeout:int=15, timeout:int=320, compression:bool=True, timeWindow:int=60, retryCount=10, retryDelay=5, stopSignal:object=None, log:object=None)
+feClient.Client(projectPublicKey:Union[str, bytes]=None, projectSecretKey:Union[str, bytes]=None, hexNumbers:bool=False, connectTimeout:int=15, timeout:int=320, compression:bool=True, timeWindow:int=60, retryCount:int=10, retryDelay:int=5, stopSignal:Any=None, log:Any=None)
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
-| `projectPublicKey` | hex | `None` | Project public key - if available - 16 byte hex like: "9cd433f765a8818c1002241190deae51". |
-| `projectSecretKey` | hex | `None` | Project secret key - if available - 16 byte hex like: "ace3ebb9a17b5b40b8b2bd87b92296b1". Required when `projectPublicKey` is used. |
+| `projectPublicKey` | Union[str, bytes] | `None` | Project public key - if available - 16 byte hex like: "9cd433f765a8818c1002241190deae51". |
+| `projectSecretKey` | Union[str, bytes] | `None` | Project secret key - if available - 16 byte hex like: "ace3ebb9a17b5b40b8b2bd87b92296b1". Required when `projectPublicKey` is used. |
 | `hexNumbers` | bool | `False` | All integer in the result will be converted to hex (javascript compatible for big numbers). |
 | `connectTimeout` | int | `15` | Connection timeout in second. |
 | `timeout` | int | `320` | Send/Receive timeout in second. |
@@ -68,37 +68,37 @@ feClient.Client(projectPublicKey:str=None, projectSecretKey:str=None, hexNumbers
 | `timeWindow` | int | `60` | Security time window for avoid old queries repeat attack. The amount is in seconds. |
 | `retryCount` | int | `10` | How many retries should be have before Error raises during operation. |
 | `retryDelay` | int | `5` | Delay in seconds between two retry. |
-| `stopSignal` | object | `None` | Object ([example](#stopsignal)) with `get()` function which returns _true_ if we need to stop, and _False_ when not. |
-| `log` | object | `None` | Logger object. If `None` given default will use built-in `logging.logger`. |
+| `stopSignal` | Any | `None` | Object ([example](#stopsignal)) with `get()` function which returns _true_ if we need to stop, and _False_ when not. |
+| `log` | Any | `None` | Logger object. If `None` given default will use built-in `logging.logger`. |
 
 ### `Client` API reference
 
 #### Create request
 ```python
-feClient.Client.request(method:str, args:list=[], kwargs:dict={}, id:any=None)
+feClient.Client.request(method:str, args:List[Any]=[], kwargs:Dict[str, Any]={}, id:Union[str, int]=None)
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
 | `method` | str | | Method name |
-| `args` | list | `[]` | Arguments of parameters |
-| `kwargs` | dict | `{}` | Keyword arguments of parameters |
-| `id` | any | `None` | ID of the request. If `None` given an automatic incremental number will be used. Do not reuse older values. |
+| `args` | List[Any] | `[]` | Arguments of parameters |
+| `kwargs` | Dict[str, Any] | `{}` | Keyword arguments of parameters |
+| `id` | Union[str, int] | `None` | ID of the request. If `None` given an automatic incremental number will be used. Do not reuse older values. |
 
 Returns a [`feClient.Request`](#request-object) object.
 
 #### Create iterator
 ```python
-feClient.Client.createIterator(method:str, *args, sortBy:str=None, fromKey:hex=None, desc:bool=None, bitmask:int=None, chunks:int=12)
+feClient.Client.createIterator(method:str, *args:List[Any], sortBy:str=None, fromKey:str=None, desc:bool=None, bitmask:int=None, chunks:int=12)
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
-| `method` | | | Method name which need to begin with _iter_. |
-| `*args` | argument list | | This parameter definition is given by the method. |
-| `sortBy` | None | | Sorting definition. |
-| `fromKey` | None | | Last referenced item ID. |
-| `desc` | None | | Ordering option. If _True_ will be descending, when _False_ will be ascending. |
-| `bitmask` | int | | Bitmask value. |
-| `chunks` | 12 | | How many items should the iterator cache. |
+| `method` | str | | Method name which need to begin with _iter_. |
+| `*args` | List[Any] | | This parameter definition is given by the method. |
+| `sortBy` | str | `None` | Sorting definition. |
+| `fromKey` | str | `None` | Last referenced item ID. |
+| `desc` | bool | `None` | Ordering option. If _True_ will be descending, when _False_ will be ascending. |
+| `bitmask` | int | `None` | Bitmask value. |
+| `chunks` | int | 12 | How many items should the iterator cache. |
 
 Returns a [`feClient.FEIterator`](#feiterator-object) object.
 

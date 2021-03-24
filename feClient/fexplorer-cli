@@ -2,6 +2,7 @@
 # Built in
 import os, sys, re, json, tempfile, logging, feClient
 from collections import OrderedDict
+from typing import Any
 # Program
 PUB_ENV_NAME = "FECLI_PUBKEY"
 SEC_ENV_NAME = "FECLI_SECKEY"
@@ -13,7 +14,7 @@ STORAGE_FILE = os.getenv(CACHEPATH_ENV_NAME, "{}/feclicache.json".format(tempfil
 class CLIError(Exception): pass
 
 class LevelBitmask:
-	_data = OrderedDict()
+	_data:Any = OrderedDict()
 	@classmethod
 	def getBitmaskByName(self, name:str) -> int:
 		return self._data[name][0]
@@ -64,7 +65,7 @@ class Parameters:
 			raise KeyError
 		return data
 	@classmethod
-	def parseType(self, name:str, typ:str) -> callable:
+	def parseType(self, name:str, typ:str) -> Any:
 		if name == "bitmask":
 			return self._bitmask
 		return {

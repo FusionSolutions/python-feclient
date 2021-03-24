@@ -1,6 +1,8 @@
 # Builtin modules
-import re, socket, select, ssl, json, traceback
+import re, select, ssl, json, traceback, errno
+from socket import socket
 from time import monotonic
+from typing import Any, Union, Callable
 # Local modules
 from . import __version__
 from .utils import deflate
@@ -18,19 +20,27 @@ CONNECTED = 2
 class ClientSocket:
 	__slots__ = ("log", "client", "endpoint", "port", "ssl", "compression", "connTimeout", "dataTimeout", "signal", "headers",
 		"poll", "readBuffer", "writeBuffer", "connectionStatus", "timeoutTimer", "sock", "sockFD", "mask", "error", "sslTimer")
-	def __init__(self, client:object, endpoint:str, port:int, ssl:bool, compression:bool,
-		connTimeout:int, dataTimeout:int, stopSignal:object):
+	readBuffer:bytes
+	writeBuffer:bytes
+	connectionStatus:int
+	timeoutTimer:float
+	sock:Any
+	sockFD:Union[None, int]
+	mask:str
+	sslTimer:float
+	def __init__(self, client:Any, endpoint:str, port:int, ssl:bool, compression:bool,
+	connTimeout:int, dataTimeout:int, stopSignal:Any):
 		self.log = client.log.getChild("socket")
 		self.log.info("Initializing..")
-		self.client = client
-		self.endpoint = endpoint
-		self.port = port
-		self.ssl = ssl
-		self.compression = compression
-		self.connTimeout = connTimeout
-		self.dataTimeout = dataTimeout
-		self.signal = stopSignal
-		self.headers = [
+		self.client:Any = client
+		self.endpoint:str = endpoint
+		self.port:int = port
+		self.ssl:bool = ssl
+		self.compression:bool = compression
+		self.connTimeout:int = connTimeout
+		self.dataTimeout:int = dataTimeout
+		self.signal:Any = stopSignal
+		headers = [
 			"POST / HTTP/1.1",
 			"Host: {}:{}".format(self.endpoint, self.port),
 			"User-Agent: Fusion Explorer client {}".format(__version__),
@@ -39,90 +49,90 @@ class ClientSocket:
 			"Content-Type: application/json;charset=utf-8",
 		]
 		if self.compression:
-			self.headers.append("Accept-Encoding: deflate")
-		self.headers = "\r\n".join(self.headers)
-		self.poll = select.poll()
+			headers.append("Accept-Encoding: deflate")
+		self.headers:str = "\r\n".join(headers)
+		self.poll:Any = select.poll()
 		self._reset()
+		self.error:Union[None, str] = None
 		self.log.info("Initialized")
-	def _connect(self, initial:bool=False):
+	def _connect(self, initial:bool=False) -> bool:
 		if initial:
 			self.log.info("Connecting to {}:{} ..".format(self.endpoint, self.port))
 		cerr = self.sock.connect_ex((self.endpoint, self.port))
-		if cerr in [socket.errno.EAGAIN, socket.errno.EINPROGRESS]:
-			return
-		elif cerr in [0, socket.errno.EISCONN]:
-			self._connected()
+		if cerr in [errno.EAGAIN, errno.EINPROGRESS]:
+			return False
+		elif cerr in [0, errno.EISCONN]:
+			if self.ssl:
+				self.sslTimer = monotonic()
+				sslCtx = ssl.create_default_context()
+				sslCtx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+				sslCtx.set_ciphers(
+					":".join([
+						"ECDHE-ECDSA-AES256-GCM-SHA384",
+						"ECDHE-RSA-AES256-GCM-SHA384",
+						"DHE-RSA-AES256-GCM-SHA384",
+						"ECDHE-ECDSA-CHACHA20-POLY1305",
+						"ECDHE-RSA-CHACHA20-POLY1305",
+						"DHE-RSA-CHACHA20-POLY1305",
+						"ECDHE-ECDSA-AES256-SHA384",
+						"ECDHE-RSA-AES256-SHA384",
+						"DHE-RSA-AES256-SHA256",
+						"ECDHE-ECDSA-AES256-SHA",
+						"ECDHE-RSA-AES256-SHA",
+						"DHE-RSA-AES256-SHA",
+						"RSA-PSK-AES256-GCM-SHA384",
+						"DHE-PSK-AES256-GCM-SHA384",
+						"RSA-PSK-CHACHA20-POLY1305",
+						"DHE-PSK-CHACHA20-POLY1305",
+						"ECDHE-PSK-CHACHA20-POLY1305",
+						"AES256-GCM-SHA384",
+						"PSK-AES256-GCM-SHA384",
+						"PSK-CHACHA20-POLY1305",
+						"ECDHE-PSK-AES256-CBC-SHA384",
+						"ECDHE-PSK-AES256-CBC-SHA",
+						"SRP-RSA-AES-256-CBC-SHA",
+						"SRP-AES-256-CBC-SHA",
+						"RSA-PSK-AES256-CBC-SHA384",
+						"DHE-PSK-AES256-CBC-SHA384",
+						"RSA-PSK-AES256-CBC-SHA",
+						"DHE-PSK-AES256-CBC-SHA",
+						"AES256-SHA",
+						"PSK-AES256-CBC-SHA384",
+						"PSK-AES256-CBC-SHA"
+					])
+				)
+				self.sock = sslCtx.wrap_socket(self.sock, do_handshake_on_connect=False, server_hostname=self.endpoint)
+				self.log.debug("SSL handshake")
+			self.connectionStatus = CONNECTING
+			self._setMask("RW")
+			if not self.ssl:
+				self.connectionStatus = CONNECTED
+				connectionDelay =  monotonic()-self.timeoutTimer
+				self.timeoutTimer = monotonic()
+				self.log.info("Connected in {:.3F} sec".format(connectionDelay))
 		elif not initial:
-			return self._onError("Connection failed {}[{}]".format(socket.errno.errorcode[cerr], cerr))
-	def _connected(self):
-		if self.ssl:
-			self.sslTimer = monotonic()
-			sslCtx = ssl.create_default_context()
-			sslCtx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-			sslCtx.set_ciphers(
-				":".join([
-					"ECDHE-ECDSA-AES256-GCM-SHA384",
-					"ECDHE-RSA-AES256-GCM-SHA384",
-					"DHE-RSA-AES256-GCM-SHA384",
-					"ECDHE-ECDSA-CHACHA20-POLY1305",
-					"ECDHE-RSA-CHACHA20-POLY1305",
-					"DHE-RSA-CHACHA20-POLY1305",
-					"ECDHE-ECDSA-AES256-SHA384",
-					"ECDHE-RSA-AES256-SHA384",
-					"DHE-RSA-AES256-SHA256",
-					"ECDHE-ECDSA-AES256-SHA",
-					"ECDHE-RSA-AES256-SHA",
-					"DHE-RSA-AES256-SHA",
-					"RSA-PSK-AES256-GCM-SHA384",
-					"DHE-PSK-AES256-GCM-SHA384",
-					"RSA-PSK-CHACHA20-POLY1305",
-					"DHE-PSK-CHACHA20-POLY1305",
-					"ECDHE-PSK-CHACHA20-POLY1305",
-					"AES256-GCM-SHA384",
-					"PSK-AES256-GCM-SHA384",
-					"PSK-CHACHA20-POLY1305",
-					"ECDHE-PSK-AES256-CBC-SHA384",
-					"ECDHE-PSK-AES256-CBC-SHA",
-					"SRP-RSA-AES-256-CBC-SHA",
-					"SRP-AES-256-CBC-SHA",
-					"RSA-PSK-AES256-CBC-SHA384",
-					"DHE-PSK-AES256-CBC-SHA384",
-					"RSA-PSK-AES256-CBC-SHA",
-					"DHE-PSK-AES256-CBC-SHA",
-					"AES256-SHA",
-					"PSK-AES256-CBC-SHA384",
-					"PSK-AES256-CBC-SHA"
-				])
-			)
-			self.sock = sslCtx.wrap_socket(self.sock, do_handshake_on_connect=False, server_hostname=self.endpoint)
-			self.log.debug("SSL handshake")
-		self.connectionStatus = CONNECTING
-		self._setMask("RW")
-		if not self.ssl:
-			self.connectionStatus = CONNECTED
-			connectionDelay =  monotonic()-self.timeoutTimer
-			self.timeoutTimer = monotonic()
-			self.log.info("Connected in {:.3F} sec".format(connectionDelay))
-			return True
-	def _createSocket(self):
+			return self._onError("Connection failed {}[{}]".format(errno.errorcode[cerr], cerr))
+		return False
+	def _createSocket(self) -> None:
 		if self.sock:
 			return
 		self._reset()
-		self.sock = socket.socket()
+		self.error = None
+		self.sock = socket()
 		self.sock.setblocking(0)
 		self.sockFD = self.sock.fileno()
 		self.mask = "R"
 		self.poll.register(self.sockFD, MASKS[self.mask])
 		self.log.info("Socket created: {}".format(self.sockFD))
-	def _doSSLHandshake(self):
+	def _doSSLHandshake(self) -> bool:
 		try:
 			self.sock.do_handshake()
 		except ssl.SSLWantReadError:
 			self._setMask("R")
-			return
+			return False
 		except ssl.SSLWantWriteError:
 			self._setMask("W")
-			return
+			return False
 		except Exception as err:
 			return self._onError("SSL Handsake error")
 		self._setMask("RW")
@@ -138,10 +148,10 @@ class ClientSocket:
 			data = self.sock.recv(16<<20)
 		except ssl.SSLWantReadError:
 			self._setMask("R")
-			return
+			return False
 		except ssl.SSLWantWriteError:
 			self._setMask("W")
-			return
+			return False
 		except BlockingIOError:
 			pass
 		except ConnectionRefusedError:
@@ -157,6 +167,7 @@ class ClientSocket:
 			self.timeoutTimer = monotonic()
 		else:
 			return self._onError("Connection broken")
+		return False
 	def _haveWrite(self) -> bool:
 		sentLength = 0
 		if self.connectionStatus == NOT_CONNECTED:
@@ -165,7 +176,7 @@ class ClientSocket:
 			return self._doSSLHandshake()
 		if not self.writeBuffer:
 			self._setMask("R")
-			return
+			return False
 		try:
 			sentLength = self.sock.send(self.writeBuffer)
 		except ssl.SSLWantReadError:
@@ -182,11 +193,11 @@ class ClientSocket:
 		if not self.writeBuffer:
 			self._setMask("R")
 		return False
-	def _onError(self, err:str):
-		self.log.error(err)
+	def _onError(self, err:str) -> bool:
+		self.log.info(err)
 		self.error = err
 		return True
-	def _parseReadBuffer(self):
+	def _parseReadBuffer(self) -> bool:
 		endLine = b"\r\n"
 		pos = self.readBuffer.find(endLine*2)
 		if pos == -1:
@@ -211,12 +222,12 @@ class ClientSocket:
 			for rawHeader in rawHeaders:
 				s = rawHeader.find(":")
 				if s <= 0 or s > 64:
-					return "Header key too long"
+					return self._onError("Header key too long")
 				headers[ rawHeader[:s].strip().lower() ] = rawHeader[s+1:].strip()
-			cLength = headers.get("content-length", "")
-			if not cLength.isdigit():
+			cLengthStr = headers.get("content-length", "")
+			if not cLengthStr.isdigit():
 				return self._onError("Invalid HTTP header value for content-length")
-			cLength = int(cLength)
+			cLength = int(cLengthStr)
 			if cLength < 0:
 				return self._onError("Invalid HTTP header value for content-length")
 			cEncoding = headers.get("content-encoding", "")
@@ -263,35 +274,35 @@ class ClientSocket:
 					headers.get("x-jsonrequestid", ""),
 				)
 			pos = self.readBuffer.find(endLine*2)
-	def _removeMask(self):
-		self.mask = None
+		return False
+	def _removeMask(self) -> None:
+		self.mask = "R"
 		try: self.poll.unregister(self.sockFD)
 		except: pass
-	def _reset(self):
+	def _reset(self) -> None:
 		self.readBuffer = b""
 		self.writeBuffer = b""
 		self.connectionStatus = NOT_CONNECTED
-		self.timeoutTimer = 0
+		self.timeoutTimer = 0.0
 		self.sock = None
 		self.sockFD = None
-		self.mask = None
-		self.error = None
-		self.sslTimer = None
-	def _setMask(self, newMask:str):
+		self.mask = "R"
+		self.sslTimer = 0.0
+	def _setMask(self, newMask:str) -> None:
 		if self.mask != newMask:
 			self.poll.modify(self.sockFD, MASKS[newMask])
 			self.mask = newMask
-	def _write(self, data:bytes):
+	def _write(self, data:bytes) -> None:
 		self.writeBuffer += data
 		self._setMask("RW")
-	def close(self):
+	def close(self) -> None:
 		if self.sock:
 			self._removeMask()
 			try: self.sock.close()
 			except: pass
 			self._reset()
 			self.log.info("Closed")
-	def connect(self):
+	def connect(self) -> None:
 		if self.connectionStatus != NOT_CONNECTED:
 			return
 		self._createSocket()
@@ -305,17 +316,18 @@ class ClientSocket:
 			(self.connectionStatus == CONNECTING and monotonic()-self.timeoutTimer > self.connTimeout) or
 			(self.connectionStatus == CONNECTED and monotonic()-self.timeoutTimer > self.dataTimeout)
 		)
-	def isConnected(self):
+	def isConnected(self) -> bool:
 		return self.connectionStatus == CONNECTED
-	def loop(self, whileFn:callable=None):
+	def loop(self, whileFn:Callable=None) -> None:
 		checkTimer = monotonic()
-		while True and (whileFn == None or whileFn()):
+		while True and (whileFn is None or whileFn()):
 			if self.signal.get():
 				raise StopSignalError()
 			if monotonic()-checkTimer >= 1:
 				checkTimer = monotonic()
 				if not self.isAlive():
-					return self._onError("Timeout")
+					self._onError("Timeout")
+					return
 			for fd, bitmask in self.poll.poll(100):
 				if fd != self.sockFD: continue
 				readable = bool(bitmask & (select.POLLIN | select.POLLPRI))
@@ -336,9 +348,10 @@ class ClientSocket:
 						self.close()
 					return
 				if error:
-					self.log.error("Client socket broken")
-					return self.close()
-	def send(self, data:bytes, auth:str=None):
+					self.close()
+					self._onError("Client socket broken")
+					return
+	def send(self, data:bytes, auth:str=None) -> None:
 		if self.connectionStatus == CONNECTED:
 			headers = self.headers
 			if auth:

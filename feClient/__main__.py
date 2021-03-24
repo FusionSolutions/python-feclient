@@ -84,6 +84,12 @@ class ClientTest(unittest.TestCase):
 		objs.append(fec.request("ping"))
 		for obj in objs:
 			self.assertIs(type(obj.get()), int)
+	def test8(self):
+		log = logging.getLogger("test8.Client")
+		fec = Client("a344613fe3d9ea517ffa0e89e645cdbc", "417e9e027bcd7efb89d250a7cbf701b4", log=log, compression=False)
+		obj = fec.request("sleepWell", [1])
+		if obj.isSuccess():
+			self.assertEqual(obj.get(), True)
 
 logging.basicConfig(format='[%(levelname).3s][%(asctime)s][%(name)s]: %(message)s', level=logging.INFO)
 unittest.main(verbosity=0)
