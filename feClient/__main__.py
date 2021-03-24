@@ -88,8 +88,7 @@ class ClientTest(unittest.TestCase):
 		log = logging.getLogger("test8.Client")
 		fec = Client("a344613fe3d9ea517ffa0e89e645cdbc", "417e9e027bcd7efb89d250a7cbf701b4", log=log, compression=False)
 		obj = fec.request("sleepWell", [1])
-		r = obj.isSuccess()
-		if r:
+		if obj.isSuccess():
 			self.assertEqual(obj.get(), True)
 
 logging.basicConfig(format='[%(levelname).3s][%(asctime)s][%(name)s]: %(message)s', level=logging.INFO)
