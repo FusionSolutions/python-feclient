@@ -4,6 +4,7 @@ from hashlib import sha256
 from time import time, sleep
 from collections import OrderedDict
 from itertools import starmap
+from typing import Any, Union, Callable, MutableMapping, List, Dict, Tuple, cast
 # Local modules
 from .exceptions import *
 from .utils import hexToBytes, StopSignal, chunks
@@ -12,33 +13,44 @@ from .clientSocket import ClientSocket
 class Client:
 	__slots__ = ("log", "pubkey", "seckey", "hexNumbers", "connTimeout", "timeout", "compression", "timeWindow", "retryCount",
 		"retryDelay", "stopSignal", "id", "requests", "socket" )
-	endpoint = "api.fusionexplorer.io"
-	port = 443
-	ssl = True
-	max_bulk_request = 0xFF
-	max_payload = 0xFFFF
-	def __init__(self, projectPublicKey:str=None, projectSecretKey:str=None, hexNumbers:bool=False, connectTimeout:int=15,
-	timeout:int=320, compression:bool=True, timeWindow:int=60, retryCount=10, retryDelay=5, stopSignal:object=None,
-	log:object=None):
+	endpoint:str = "api.fusionexplorer.io"
+	port:int = 443
+	ssl:bool = True
+	max_bulk_request:int = 0xFF
+	max_payload:int = 0xFFFF
+	pubkey:bytes
+	seckey:bytes
+	def __init__(self, projectPublicKey:Union[str, bytes]=None, projectSecretKey:Union[str, bytes]=None,
+	hexNumbers:bool=False, connectTimeout:int=15, timeout:int=320, compression:bool=True, timeWindow:int=60, retryCount:int=10,
+	retryDelay:int=5, stopSignal:Any=None, log:Any=None):
 		self.log = log or logging.getLogger("FusionExplorer")
 		self.log.info("Initializing..")
-		self.pubkey = projectPublicKey
-		self.seckey = projectSecretKey
-		if self.pubkey != None:
-			if self.seckey == None:
+		if projectPublicKey is not None and len(projectPublicKey) > 0:
+			if projectSecretKey is None:
 				raise InitializationError("`projectSecretKey` is required when `projectPublicKey` is set")
-			if type(self.pubkey) is not bytes:
-				if not re.match(r'^(0x|)[0-9a-f]{32}$', self.pubkey, re.I):
+			if type(projectPublicKey) is str:
+				if not re.match(r'^(0x|)[0-9a-f]{32}$', cast(str, projectPublicKey), re.I):
 					raise InitializationError("`projectPublicKey` must be 32 character hex string")
-				self.pubkey = hexToBytes(self.pubkey)
+				self.pubkey = hexToBytes(cast(str, projectPublicKey))
+			elif type(projectPublicKey) is bytes:
+				self.pubkey = cast(bytes, projectPublicKey)
+			else:
+				raise InitializationError("`projectPublicKey` must be string or bytes")
 			if len(self.pubkey) != 16:
 				raise InitializationError("`projectPublicKey` must be 16 byte long")
-			if type(self.seckey) is not bytes:
-				if not re.match(r'^(0x|)[0-9a-f]{32}$', self.seckey, re.I):
+			if type(projectSecretKey) is str:
+				if not re.match(r'^(0x|)[0-9a-f]{32}$', cast(str, projectSecretKey), re.I):
 					raise InitializationError("`projectSecretKey` must be 32 character hex string")
-				self.seckey = hexToBytes(self.seckey)
+				self.seckey = hexToBytes(cast(str, projectSecretKey))
+			elif type(projectSecretKey) is bytes:
+				self.seckey = cast(bytes, projectSecretKey)
+			else:
+				raise InitializationError("`projectSecretKey` must be string or bytes")
 			if len(self.seckey) != 16:
 				raise InitializationError("`projectSecretKey` must be 16 byte long")
+		else:
+			self.pubkey = b""
+			self.seckey = b""
 		self.hexNumbers = hexNumbers
 		self.connTimeout = connectTimeout
 		self.timeout = timeout
@@ -47,19 +59,16 @@ class Client:
 		self.retryCount = retryCount
 		self.retryDelay = retryDelay
 		self.stopSignal = stopSignal or StopSignal
-		self.id = 0
-		self.requests = weakref.WeakValueDictionary()
-		self.socket = ClientSocket(self, self.endpoint, self.port, self.ssl, self.compression,
+		self.id:int = 0
+		self.requests:MutableMapping = weakref.WeakValueDictionary()
+		self.socket:Any = ClientSocket(self, self.endpoint, self.port, self.ssl, self.compression,
 			self.connTimeout, self.timeout, self.stopSignal)
-		self.log.debug("Public token: {}".format(self.pubkey.hex() if self.pubkey else "None"))
-		self.log.debug("Secret token: {}".format( ("{}...{}".format(
-			self.seckey[:1].hex(),
-			self.seckey[-1:].hex())) if self.seckey else "None"
-		))
+		self.log.debug("Public token: {}".format(self.pubkey.hex()))
+		self.log.debug("Secret token: {}...{}".format(self.seckey[:1].hex(), self.seckey[-1:].hex()))
 		self.log.info("Initialized")
-	def __del__(self):
+	def __del__(self) -> None:
 		self.close()
-	def __getstate__(self):
+	def __getstate__(self) -> Dict[str, Any]:
 		return {
 			"log":        self.log,
 			"pubkey":     self.pubkey,
@@ -72,8 +81,8 @@ class Client:
 			"retryCount": self.retryCount,
 			"retryDelay": self.retryDelay,
 			"stopSignal": self.stopSignal,
-		},
-	def __setstate__(self, states):
+		}
+	def __setstate__(self, states:Dict[str, Any]):
 		self.log         =states["log"]
 		self.pubkey      =states["pubkey"]
 		self.seckey      =states["seckey"]
@@ -90,9 +99,9 @@ class Client:
 		self.id          =0
 		self.requests    =weakref.WeakValueDictionary()
 		self.socket      =None
-	def __enter__(self):
+	def __enter__(self) -> Any:
 		return self.clone()
-	def __exit__(self, type, value, traceback):
+	def __exit__(self, type:Any, value:Any, traceback:Any):
 		self.close()
 	def _checkSocketError(self):
 		if self.socket.error:
@@ -124,11 +133,11 @@ class Client:
 					self.pubkey,
 					sha256(data).digest(),
 				]),
-				sha256
+				"SHA256"
 			)
 		)).hex()
-	def _get(self, id:any) -> object:
-		def wh():
+	def _get(self, id:Any) -> None:
+		def wh() -> bool:
 			for obj in self.requests.values():
 				if obj.getID() == id:
 					if not obj.isDone():
@@ -146,7 +155,7 @@ class Client:
 			raise ResponseError("Unknown request ID: {}".format(id))
 		elif not self.requests[id].isDone():
 			raise ResponseError("Did not get any response for ID: {}".format(id))
-	def _gotResult(self, data:dict, connectionID:str, HTTPRequestID:str, JSONRequestID:str):
+	def _gotResult(self, data:Dict[str, Any], connectionID:str, HTTPRequestID:str, JSONRequestID:str) -> None:
 		if data['id'] not in self.requests:
 			return
 		obj = self.requests[data['id']]
@@ -155,7 +164,7 @@ class Client:
 		uid = "-".join((connectionID, HTTPRequestID, JSONRequestID))
 		self.log.info("Got result for UID: {}".format(uid))
 		obj._parseResponse( uid, data )
-	def _tryAgain(self, fn, *args, **kwargs) -> any:
+	def _tryAgain(self, fn:Callable, *args, **kwargs) -> Any:
 		lastErr = None
 		c = self.retryCount
 		while True:
@@ -163,7 +172,7 @@ class Client:
 				return fn(*args, **kwargs)
 			except Exception as err:
 				lastErr = err
-				if isinstance(err, (SocketError, ResponseError)):
+				if isinstance(err, SocketError):
 					self.log.debug("Got error: {}".format(err))
 					if c > 0:
 						if c != self.retryCount:
@@ -172,11 +181,13 @@ class Client:
 						self.connect()
 						continue
 				break
+		if isinstance(lastErr, SocketError):
+			self.log.error(lastErr.message)
 		raise lastErr from None
-	def clear(self):
+	def clear(self) -> None:
 		self.requests.clear()
-	def clone(self, **kwargs) -> object:
-		opts = {
+	def clone(self, **kwargs) -> Any:
+		opts:Dict[str, Any] = {
 			"projectPublicKey":self.pubkey,
 			"projectSecretKey":self.seckey,
 			"hexNumbers":self.hexNumbers,
@@ -191,23 +202,24 @@ class Client:
 		}
 		opts.update(kwargs)
 		return Client(**opts)
-	def close(self):
-		self.socket.close()
-		self.clear()
-	def connect(self):
+	def close(self) -> None:
+		if hasattr(self, "socket"):
+			self.socket.close()
+			self.clear()
+	def connect(self) -> None:
 		self.socket.close()
 		self._tryAgain(self._connect)
-	def createIterator(self, method:str, *args,
-	sortBy:str=None, fromKey:hex=None, desc:bool=None, bitmask:int=None, chunks:int=12) -> object:
+	def createIterator(self, method:str, *args:List[Any],
+	sortBy:str=None, fromKey:str=None, desc:bool=None, bitmask:int=None, chunks:int=12) -> Any:
 		if not method.startswith("iter"):
 			raise InitializationError("For iterating you need choose method which name begins with `iter`.")
-		kwargs = { "limit":chunks }
-		if sortBy != None: kwargs["sortBy"] = sortBy
-		if fromKey != None: kwargs["fromKey"] = fromKey
-		if desc != None: kwargs["desc"] = desc
-		if bitmask != None: kwargs["bitmask"] = bitmask
+		kwargs:Dict[str, Any] = { "limit":chunks }
+		if sortBy is not None: kwargs["sortBy"] = sortBy
+		if fromKey is not None: kwargs["fromKey"] = fromKey
+		if desc is not None: kwargs["desc"] = desc
+		if bitmask is not None: kwargs["bitmask"] = bitmask
 		return FEIterator(self, method, args, kwargs)
-	def request(self, method:str, args:list=[], kwargs:dict={}, id:any=None):
+	def request(self, method:str, args:List[Any]=[], kwargs:Dict[str, Any]={}, id:Union[str, int]=None) -> Any:
 		if id == None:
 			id = self.id
 			self.id += 1
@@ -237,28 +249,28 @@ class Request:
 		"_getter", "_id", "_method", "_args", "_kwargs", "_hexNumbers", "_requestTime",
 		"_responseTime", "_uid", "_done", "_success", "_response", "__weakref__"
 	)
-	def __init__(self, getter:callable, id:any, method:str, args:list, kwargs:dict, hexNumbers:bool):
+	def __init__(self, getter:Any, id:Any, method:str, args:List[Any], kwargs:Dict[str, Any], hexNumbers:bool):
 		self._getter = getter
 		self._id = id
 		self._method = method
 		self._args = args
 		self._kwargs = kwargs
 		self._hexNumbers = hexNumbers
-		self._requestTime = time()
-		self._responseTime = None
-		self._uid = None
-		self._done = False
-		self._success = None
-		self._response = None
+		self._requestTime:float = time()
+		self._responseTime:float = 0.0
+		self._uid:str = ""
+		self._done:bool = False
+		self._success:bool = False
+		self._response:Any = None
 	def _get(self):
 		self._getter[0](self._getter[1], self._id)
-	def _parseResponse(self, uid, data):
+	def _parseResponse(self, uid:str, data:Any) -> None:
 		self._done = True
 		self._responseTime = time()
 		self._uid = uid
 		self._success = not ("error" in data and data["error"])
 		self._response = data["result"] if self._success else data["error"]
-	def _toJson(self) -> dict:
+	def _toJson(self) -> Dict[str, Any]:
 		return {
 			"jsonrpc":"fsp1",
 			"args":self._args,
@@ -267,7 +279,7 @@ class Request:
 			"id":self._id,
 			"hexNumbers":self._hexNumbers
 		}
-	def get(self) -> any:
+	def get(self) -> Any:
 		if not self._done:
 			self._get()
 		return self._response
@@ -275,7 +287,7 @@ class Request:
 		if not self._done:
 			self._get()
 		return self._requestTime - self._responseTime
-	def getID(self) -> any:
+	def getID(self) -> Any:
 		return self._id
 	def isDone(self) -> bool:
 		return self._done
@@ -289,19 +301,19 @@ class Request:
 		return self._success
 
 class FEIterator:
-	def __init__(self, client:object, method:str, args:list, kwargs:dict):
+	def __init__(self, client:Any, method:str, args:tuple, kwargs:Dict[str, Any]):
 		self.client = client
 		self.method = method
 		self.args = args
 		self.kwargs = kwargs
-		self.cache = []
-	def __enter__(self):
+		self.cache:list = []
+	def __enter__(self) -> Any:
 		return self
-	def __exit__(self, type, value, traceback):
+	def __exit__(self, type:Any, value:Any, traceback:Any) -> None:
 		pass
-	def __iter__(self):
+	def __iter__(self) -> Any:
 		return self
-	def __request__(self):
+	def __request__(self) -> None:
 		if not self.cache:
 			req = self.client.request(self.method, self.args, self.kwargs)
 			data = req.get()
@@ -309,14 +321,14 @@ class FEIterator:
 				raise ResponseError(data)
 			if type(data) is list:
 				self.cache = [ (x["key"], x["data"]) for x in data ]
-	def __next__(self):
+	def __next__(self) -> Tuple[Any, Any]:
 		self.__request__()
 		if not self.cache:
 			raise StopIteration
 		key, data = self.cache.pop(0)
 		self.kwargs["fromKey"] = key
 		return key, data
-	def checkNext(self):
+	def checkNext(self) -> Tuple[Any, Any]:
 		self.__request__()
 		if not self.cache:
 			raise StopIteration
