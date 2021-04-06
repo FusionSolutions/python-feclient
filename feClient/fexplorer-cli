@@ -85,7 +85,7 @@ class Parameters:
 			if key in ret:
 				raise CLIError("Duplicate parameter: {}".format(key))
 			for name, typ, opt in methodParams:
-				if name.lower() == key:
+				if name.lower() == key.lower():
 					try:
 						ret[ name ] = self.parseType(name, typ)(val)
 					except CLIError as err:
