@@ -6,7 +6,7 @@ This utility makes easier to use Fusion Explorer API which uses JSON-RPC protoco
 
 ## Installation
 
-Requires python 3.8 or later version.
+Requires python version 3.5 or later.
 
 To install the latest release on [PyPI](https://pypi.org/project/python-feclient/),
 simply run:
