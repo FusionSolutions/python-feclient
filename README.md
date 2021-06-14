@@ -1,4 +1,4 @@
-[![Python package](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml/badge.svg)](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml)
+[![Python tests](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml/badge.svg?branch=master)](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml)
 # Fusion Explorer API python client
 
 ## Introduction
