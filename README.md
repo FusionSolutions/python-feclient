@@ -1,3 +1,4 @@
+[![Python package](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml/badge.svg)](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml)
 # Fusion Explorer API python client
 
 ## Introduction
@@ -6,7 +7,7 @@ This utility makes easier to use Fusion Explorer API which uses JSON-RPC protoco
 
 ## Installation
 
-Requires python version 3.5 or later.
+Requires python version 3.7 or later.
 
 To install the latest release on [PyPI](https://pypi.org/project/python-feclient/),
 simply run:
