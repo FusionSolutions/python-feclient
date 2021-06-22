@@ -73,6 +73,7 @@ class Parameters:
 			"int":int,
 			"bool":self._bool,
 			"dict":self._dict,
+			"list":self._dict,
 			"hex":self._hex,
 		}.get(typ, self._any)
 	@classmethod
