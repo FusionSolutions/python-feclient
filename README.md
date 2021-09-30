@@ -215,7 +215,7 @@ Functions:
 You can create this object with [`feClient.Client.createIterator`](#create-iterator) function.
 
 This is a simple iterator extended with the following functions:
-- `it.__next__` and `it.next()`: Returns a tuple: ```( key, data )```. Technically pops the cache first item and returns it back. The key is the unique ID of the item, may you need reference this when you want continue the iteration later.
+- `it.__next__()` and `it.next()`: Returns a tuple: ```( key, data )```. Technically pops the cache first item and returns it back. The key is the unique ID of the item, may you need reference this when you want continue the iteration later.
 - `it.checkNext()`: This function returns the same as the `__next__`, but will not delete from the cache. Calling this function the iteration would not be moving forward. If there is nothing for next `StopIteration` will be raised.
 - `it.hasNext()`: Will return `True` when next data exists, `False` when not.
 
