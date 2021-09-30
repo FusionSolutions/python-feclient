@@ -52,7 +52,7 @@ with Client() as fec:
 
 **IMPORTANT**
 
-The initialized client is **NOT** safe for threads or multiprocess at the same time, unless when you [`Client.clone`](#clone) it before you give it to the thread/process.
+The initialized client is **NOT** safe for threads or multi-process at the same time, unless when you [`Client.clone`](#clone) it before you give it to the thread/process.
 
 ### Initialize Client
 ```python
@@ -68,7 +68,7 @@ feClient.Client(projectPublicKey:Optional[Union[str, bytes]]=None, projectSecret
 | `retryDelay` | Union[int, float] | `5` | Delay in seconds between two retry. It can also be a fractal number like `0.25`. |
 | `connectTimeout` | Union[int, float] | `15` | Socket connection timeout in second. It can also be a fractal number like `4.5`. |
 | `transferTimeout` | Union[int, float] | `320` | Socket transfer/Receive timeout in second. It can also be a fractal number like `4.5`. |
-| `disableCompression` | bool | `False` | Phrobit asking server for compressed response. |
+| `disableCompression` | bool | `False` | Prohibit asking server for compressed response. |
 | `log` | Optional[Logger] | `None` | Initialized `Logger` class from [python-fslogger](https://github.com/FusionSolutions/python-fslogger) package. |
 | `signal` | Optional[T_Signal] | `None` | Signal, SoftSignal or HardSignal class from [python-fslsignal](https://github.com/FusionSolutions/python-fssignal) package. |
 | `target` | Tuple[str, int] | `("api.fusionexplorer.io", 443)` | Explorer server address and port. May you  do not need set this. |
@@ -80,7 +80,7 @@ feClient.Client(projectPublicKey:Optional[Union[str, bytes]]=None, projectSecret
 If you need the integers in other format like hexadecimal, you can set `convertNumbers` during initialize. This option will be sent with every request, and the server will format the response before it sends back to the client.
 
 Supported values:
-- `None` or `"default"`: Protocol based predefined convertion. This client uses JSONRPC-P protocol which equals `"none"` for this value.
+- `None` or `"default"`: Protocol based predefined conversion. This client uses JSONRPC-P protocol which equals `"none"` for this value.
 - `"none"`: Integers and floats will be not converted and stays in original type.
 - `"str"`: Integers and floats will be converted into string. For example: `balance:int = 55` will be `balance:str = "55"``, and `percent:float = 3.14` will be `percent:str = "3.14"`
 - `"hex"`: Integers and floats will be converted into string, but integers will be in hexadecimal format with `0x` prefix. For example: `balance:int = 55` will be `balance:str = "0x37"``, and `percent:float = 3.14` will be `percent:str = "3.14"`
@@ -140,7 +140,7 @@ with Client() as fec:
 ```
 
 #### The `with` statement
-The `Client` has enter/exit functions, so you can use with the `with` statement. **Attention** do not use the same instance when you are done with the statement, because on exit the socket will be closed and all states will be reseted.
+The `Client` has enter/exit functions, so you can use with the `with` statement. **Attention** do not use the same instance when you are done with the statement, because on exit the socket will be closed and all states will be reset.
 
 Example:
 ```python
@@ -162,13 +162,13 @@ Closing connection and reset all states.
 ```python
 feClient.Client.clear()
 ```
-Clearing request and response cache. It is automatic during deallocation.
+Clearing request and response cache. It is automatic during de-allocation.
 
 #### Clone
 ```python
 feClient.Client.clone(**kwargs)
 ```
-Creates a new [`Client`](#initialize-client) instance with the initialized parameters. When you use threading or multiprocessing you should give an object like this forward. You can give keyword arguments to replace some [initalization parameter](#initialize-client).
+Creates a new [`Client`](#initialize-client) instance with the initialized parameters. When you use threading or multi-processing you should give an object like this forward. You can give keyword arguments to replace some [initialization parameter](#initialize-client).
 
 Example:
 ```python
@@ -203,7 +203,7 @@ for th in threads:
 You can create this object with [`feClient.Client.request`](#create-request) function.
 
 Functions:
-- `Request.get()`: Returns the request response. On any server error the `Client` will reconnect and send all un-responded requests again.
+- `Request.get()`: Returns the request response. On any server error the `Client` will reconnect and send all non-responded requests again.
 - `Request.getDelay()`: Returns the response delay in seconds as float.
 - `Request.getID()`: Returns the request ID.
 - `Request.isDone()`: Returns `True` when response arrived and `False` when not.
@@ -280,7 +280,7 @@ One way semaphores are used:
 - One for each user (USER session).
 
 You will be sorted in GUEST session when:
-- You dont not provide any auth.
+- You don not not provide any auth.
 - You provide invalid auth.
 - Your subscription is expired.
 - Your subscription has exceeded the daily quota.
