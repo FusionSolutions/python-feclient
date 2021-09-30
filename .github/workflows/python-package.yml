@@ -36,4 +36,4 @@ jobs:
         python setup.py install
     - name: Test package
       run: |
-        python -m feClient
+        python setup.py test
