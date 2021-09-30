@@ -1,5 +1,5 @@
 [![Python tests](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml/badge.svg?branch=master)](https://github.com/FusionSolutions/python-feclient/actions/workflows/python-package.yml)
-# Fusion Explorer API python client
+# Python client for Fusion Explorer
 
 ## Introduction
 
@@ -45,91 +45,102 @@ Example for standard usage:
 ```python
 from feClient import Client
 
-fec = Client()
-request = fec.request("ping")
-print(request.get())
+with Client() as fec:
+	request = fec.request("ping")
+	print(request.get())
 ```
 
 **IMPORTANT**
 
-Object sharing is **MAY NOT** safe for multi-threading/processing, do not share any initialized objects with another thread or process. If you want to use another thread or process you need [clone](#clone) it and give that as argument.
+The initialized client is **NOT** safe for threads or multi-process at the same time, unless when you [`Client.clone`](#clone) it before you give it to the thread/process.
 
 ### Initialize Client
 ```python
-feClient.Client(projectPublicKey:Union[str, bytes]=None, projectSecretKey:Union[str, bytes]=None, hexNumbers:bool=False, connectTimeout:int=15, timeout:int=320, compression:bool=True, timeWindow:int=60, retryCount:int=10, retryDelay:int=5, stopSignal:Any=None, log:Any=None)
+feClient.Client(projectPublicKey:Optional[Union[str, bytes]]=None, projectSecretKey:Optional[Union[str, bytes]]=None, timeWindow:int=60, convertNumbers:Optional[str]=None, retryCount:int=10, retryDelay:Union[int, float]=5, connectTimeout:int=15, transferTimeout:int=320, disableCompression:bool=False, log:Optional[Logger]=None, signal:Optional[T_Signal]=None, target:Tuple[str, int]=("api.fusionexplorer.io", 443), httpHost:Optional[str]=None, ssl:bool=True)
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
-| `projectPublicKey` | Union[str, bytes] | `None` | Project public key - if available - 16 byte hex like: "9cd433f765a8818c1002241190deae51". |
-| `projectSecretKey` | Union[str, bytes] | `None` | Project secret key - if available - 16 byte hex like: "ace3ebb9a17b5b40b8b2bd87b92296b1". Required when `projectPublicKey` is used. |
-| `hexNumbers` | bool | `False` | All integer in the result will be converted to hex (javascript compatible for big numbers). |
-| `connectTimeout` | int | `15` | Connection timeout in second. |
-| `timeout` | int | `320` | Send/Receive timeout in second. |
-| `compression` | bool | `True` | Enable or disable compression for transmitting results. |
+| `projectPublicKey` | Optional[Union[str, bytes]] | `None` | Project public key - if available - 16 byte hex like: "0x9cd433f765a8818c1002241190deae51". |
+| `projectSecretKey` | Optional[Union[str, bytes]] | `None` | Project secret key - if available - 16 byte hex like: "0xace3ebb9a17b5b40b8b2bd87b92296b1". **Required when `projectPublicKey` is used.** |
 | `timeWindow` | int | `60` | Security time window for avoid old queries repeat attack. The amount is in seconds. |
+| `convertNumbers` | Optional[str] | `None` | Please see [`numbers`](#numbers). |
 | `retryCount` | int | `10` | How many retries should be have before Error raises during operation. |
-| `retryDelay` | int | `5` | Delay in seconds between two retry. |
-| `stopSignal` | Any | `None` | Object ([example](#stopsignal)) with `get()` function which returns _true_ if we need to stop, and _False_ when not. |
-| `log` | Any | `None` | Logger object. If `None` given default will use built-in `logging.logger`. |
+| `retryDelay` | Union[int, float] | `5` | Delay in seconds between two retry. It can also be a fractal number like `0.25`. |
+| `connectTimeout` | Union[int, float] | `15` | Socket connection timeout in second. It can also be a fractal number like `4.5`. |
+| `transferTimeout` | Union[int, float] | `320` | Socket transfer/Receive timeout in second. It can also be a fractal number like `4.5`. |
+| `disableCompression` | bool | `False` | Prohibit asking server for compressed response. |
+| `log` | Optional[Logger] | `None` | Initialized `Logger` class from [python-fslogger](https://github.com/FusionSolutions/python-fslogger) package. |
+| `signal` | Optional[T_Signal] | `None` | Signal, SoftSignal or HardSignal class from [python-fslsignal](https://github.com/FusionSolutions/python-fssignal) package. |
+| `target` | Tuple[str, int] | `("api.fusionexplorer.io", 443)` | Explorer server address and port. May you  do not need set this. |
+| `httpHost` | Optional[str] | `None` | HTTP `host` header during request. When is not set, then target data will be used. May you  do not need set this. |
+| `ssl` | bool | `True` | Initialize SSL for the socket. May you do not need set this. |
+
+### Numbers
+
+If you need the integers in other format like hexadecimal, you can set `convertNumbers` during initialize. This option will be sent with every request, and the server will format the response before it sends back to the client.
+
+Supported values:
+- `None` or `"default"`: Protocol based predefined conversion. This client uses JSONRPC-P protocol which equals `"none"` for this value.
+- `"none"`: Integers and floats will be not converted and stays in original type.
+- `"str"`: Integers and floats will be converted into string. For example: `balance:int = 55` will be `balance:str = "55"``, and `percent:float = 3.14` will be `percent:str = "3.14"`
+- `"hex"`: Integers and floats will be converted into string, but integers will be in hexadecimal format with `0x` prefix. For example: `balance:int = 55` will be `balance:str = "0x37"``, and `percent:float = 3.14` will be `percent:str = "3.14"`
 
 ### `Client` API reference
 
 #### Create request
 ```python
-feClient.Client.request(method:str, args:List[Any]=[], kwargs:Dict[str, Any]={}, id:Union[str, int]=None)
+Client.request(method:str, args:List[Any]=[], kwargs:Dict[str, Any]={}, id:Optional[Union[str, int]]=None, path:str="/") -> Request
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
-| `method` | str | | Method name |
-| `args` | List[Any] | `[]` | Arguments of parameters |
-| `kwargs` | Dict[str, Any] | `{}` | Keyword arguments of parameters |
-| `id` | Union[str, int] | `None` | ID of the request. If `None` given an automatic incremental number will be used. Do not reuse older values. |
-
-Returns a [`feClient.Request`](#request-object) object.
+| `method` | str | | Method name. |
+| `args` | List[Any] | `[]` | Arguments of parameters. |
+| `kwargs` | Dict[str, Any] | `{}` | Keyword arguments of parameters. |
+| `id` | Optional[Union[str, int]] | `None` | Request identifier, for `None` a sequenced number will be used. **Do not** duplicate ID's in the same instance. |
+| `path` | str | `/` | HTTP request path. May you  do not need set this. |
+	
+Returns a [`Request`](#request-object) object.
 
 #### Create iterator
 ```python
-feClient.Client.createIterator(method:str, *args:List[Any], sortBy:str=None, fromKey:str=None, desc:bool=None, bitmask:int=None, chunks:int=12)
+feClient.Client.createIterator(method:str, *args:Any, sortBy:Optional[str]=None, fromKey:Optional[str]=None, desc:Optional[bool]=None, bitmask:Optional[int]=None, chunks:int=12)
 ```
 | Parameter | Type | Default | Description |
 | - | - | - | - |
-| `method` | str | | Method name which need to begin with _iter_. |
+| `method` | str | | Method name which need to begin with `iter`. |
 | `*args` | List[Any] | | This parameter definition is given by the method. |
-| `sortBy` | str | `None` | Sorting definition. |
-| `fromKey` | str | `None` | Last referenced item ID. |
-| `desc` | bool | `None` | Ordering option. If _True_ will be descending, when _False_ will be ascending. |
-| `bitmask` | int | `None` | Bitmask value. |
-| `chunks` | int | 12 | How many items should the iterator cache. |
+| `sortBy` | Optional[str] | `None` | Sorting definition key. |
+| `fromKey` | Optional[str] | `None` | Last referenced item ID from where you want to continue the iteration. |
+| `desc` | Optional[bool] | `None` | When `True` will be descending, when `False` will be ascending ordered. |
+| `bitmask` | Optional[int] | `None` | Bitmask value. |
+| `chunks` | int | 12 | Amount of the rows what the iterator should precache. |
 
-Returns a [`feClient.FEIterator`](#feiterator-object) object.
+Returns a [`feClient.FEIterator`](#feiterator-object) object with inside a **cloned** client.
+You can read more [here](#feIterator-object).
 
 Example usage:
 ```python
 from feClient import Client
 
-fec = Client()
-it = fec.createIterator("iterTransactionInputs", "btc", "0x8c659902068f0af33849a6d49c4c92150bbb28a9d60c766e47379bbb04726ea0", chunks=5)
-for key, data in it:
-	print((key, data))
+with Client() as fec:
+	for key, data in fec.createIterator("iterTransactionInputs", "btc", "0x8c659902068f0af33849a6d49c4c92150bbb28a9d60c766e47379bbb04726ea0", chunks=5):
+		print((key, data))
 ```
 Example for continue iteration from the last element:
 ```python
 from feClient import Client
 from itertools import islice
 
-fec = Client()
-
-it = fec.createIterator("iterAddresses", "btc", sortBy="balance", desc=True, chunks=2)
-for key, data in islice(it, 2):
-	print((key, data))
-
-it = fec.createIterator("iterAddresses", "btc", sortBy="balance", fromKey=key, desc=True, chunks=2)
-for key, data in it:
-	print((key, data))
+with Client() as fec:
+	for key, data in islice(fec.createIterator("iterAddresses", "btc", sortBy="balance", desc=True, chunks=2), 2):
+		print(data)
+	for key, data in fec.createIterator("iterAddresses", "btc", sortBy="balance", fromKey=key, desc=True, chunks=2):
+		print(data)
+		break
 ```
 
-#### `with` usage
-The `Client` class has enter/exit functions, so you can use with `with` statement. You need to know, that on every enter, the client [clones](#clone) himself.
+#### The `with` statement
+The `Client` has enter/exit functions, so you can use with the `with` statement. **Attention** do not use the same instance when you are done with the statement, because on exit the socket will be closed and all states will be reset.
 
 Example:
 ```python
@@ -141,30 +152,23 @@ with fec as c:
 	request = fec.request("ping")
 	print(request.get())
 ```
-
-#### Connect
-```python
-feClient.Client.connect()
-```
-Connect to server. It is automatic during request.
-
 #### Close connection
 ```python
 feClient.Client.close()
 ```
-Closing connection and clear cache. It is automatic during deallocation.
+Closing connection and reset all states.
 
 #### Clear caches
 ```python
 feClient.Client.clear()
 ```
-Clearing request and response cache. It is automatic during deallocation.
+Clearing request and response cache. It is automatic during de-allocation.
 
 #### Clone
 ```python
 feClient.Client.clone(**kwargs)
 ```
-This will return a brand new created [`Client`](#initialize-client) object which is completely reset/cleared. If you create a thread or process you need give the cloned object. You can give keyword arguments to replace some [initalization parameter](#initialize-client).
+Creates a new [`Client`](#initialize-client) instance with the initialized parameters. When you use threading or multi-processing you should give an object like this forward. You can give keyword arguments to replace some [initialization parameter](#initialize-client).
 
 Example:
 ```python
@@ -176,17 +180,17 @@ fec = Client()
 def threadFn(id, c):
 	for i in range(2):
 		request = c.request("ping")
-		print(( id, request.get() ))
+		print("Thread-{} : {}".format(id, request.get()))
 
 threads = []
 for i in range(4):
-	threads.append( threading.Thread(target=threadFn, args=(i, fec.clone())) )
+	threads.append( threading.Thread(target=threadFn, args=(i, fec.clone(convertNumbers="hex"))) )
 
 for th in threads:
 	th.start()
 
 request = fec.request("ping")
-print(( "Main", request.get() ))
+print("Main : {}".format(request.get()))
 
 for th in threads:
 	th.join()
@@ -199,73 +203,69 @@ for th in threads:
 You can create this object with [`feClient.Client.request`](#create-request) function.
 
 Functions:
-- `Request.get()`: Returns the request response. On any server error the `Client` will reconnect and send all un-responded requests again.
-- `Request.getDelay()`: Returns the response delay in seconds as `float`.
+- `Request.get()`: Returns the request response. On any server error the `Client` will reconnect and send all non-responded requests again.
+- `Request.getDelay()`: Returns the response delay in seconds as float.
 - `Request.getID()`: Returns the request ID.
-- `Request.isDone()`: Returns _True_ as a `bool` when response arrived, _False_ when not.
+- `Request.isDone()`: Returns `True` when response arrived and `False` when not.
 - `Request.getUID()`: Returns the unique response ID as `str`. On an issue report you can give this as reference.
-- `Request.isSuccess()`: Returns _True_ when no error happened else return _False_ as a `bool`.
+- `Request.isSuccess()`: Returns `True` when no error happened else `False` when something went wrong.
 
 #### FEIterator object
 
 You can create this object with [`feClient.Client.createIterator`](#create-iterator) function.
 
 This is a simple iterator extended with the following functions:
-- `it.__next__` and `it.next()`: Returns a tuple: ```( key, data )```. Technically pops the cache first item and returns it back. The key is the unique ID of the item, may you need reference this when you want continue the iteration later.
+- `it.__next__()` and `it.next()`: Returns a tuple: ```( key, data )```. Technically pops the cache first item and returns it back. The key is the unique ID of the item, may you need reference this when you want continue the iteration later.
 - `it.checkNext()`: This function returns the same as the `__next__`, but will not delete from the cache. Calling this function the iteration would not be moving forward. If there is nothing for next `StopIteration` will be raised.
-
-### StopSignal
-```python
-feClient.StopSignal()
-```
-This is an example class which ready to use. If the process get _SIGINT_ signal, then during any request/get call will raise [StopSignalError](#Stop-signal-error)
+- `it.hasNext()`: Will return `True` when next data exists, `False` when not.
 
 ### Exceptions
 
-#### Stop signal error
-```python
-feClient.StopSignalError(Exception)
-```
-Will be raised when the process get _SIGINT_ signal.
-
 #### Base error
 ```python
-feClient.Error(Exception)
+feClient.BaseRPCError(Exception)
 ```
+This is an `Exception` instance with a `message` attribute.
 Example to catch errors:
 ```python
 try:
   # some request..
-except feClient.Error as err:
+except feClient.BaseRPCError as err:
   print(err.message)
-  # do something else..
+  # or do something else..
 ```
 
 #### Initialization error
 ```python
-feClient.InitializationError(Error)
+feClient.InitializationError(BaseRPCError)
 ```
 Will be raises when you give bad parameters during initializing the client.
 
 #### Socket error
 ```python
-feClient.SocketError(Error)
+feClient.SocketError(BaseRPCError)
 ```
 Will be raised when the client has lost the connection with the server or can not connect to it.
 
+#### Message error
+```python
+feClient.MessageError(BaseRPCError)
+```
+Will be raised when the server gives an non-parseable response.
+
 #### Request error
 ```python
-feClient.RequestError(Error)
+feClient.RequestError(BaseRPCError)
 ```
 Will be raised when you give bad type for [`feClient.Client.request`](#create-request) `id` parameter or the `id` is already in use.
 
 #### Response error
 ```python
-feClient.ResponseError(Error)
+feClient.ResponseError(BaseRPCError)
 ```
 Will be raised:
 - when the server did not answered for the request or you did not have sent the request for that ID.
-- when you give bad parameters to `createIterator` and server sends error back.
+- When error happens during iteration of [`FEIterator`](#feiterator-object) object.
 
 ## Contribution
 
@@ -273,11 +273,19 @@ Bug reports, constructive criticism and suggestions are welcome. If you have som
 
 ## API Limitations
 
-Server limitations are very strict. As GUEST you will share resources with other GUEST sessions, currently one GUEST request can run at the same time.
+Server limitations are very strict.
+One way semaphores are used:
+- Only one for the guests (GUEST session). For more details see above.
+- One for each projects (PROJECT session).
+- One for each user (USER session).
 
-Every project has his own resources and one request can run at the same time.
+You will be sorted in GUEST session when:
+- You don not not provide any auth.
+- You provide invalid auth.
+- Your subscription is expired.
+- Your subscription has exceeded the daily quota.
 
-At the moment subscriptions are not free and can be requested in private.
+For private subscribe request please send an [email](mailto:contact@fusionexplorer.io).
 
 ## Copyright
 
