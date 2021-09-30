@@ -1,0 +1,1 @@
+python-fsrpcclient>=0.1.1

@@ -1,94 +1,268 @@
-# Builtin modules
-import logging, unittest
-# Own modules
+# Built in
+import os, sys, re, json, tempfile
+from collections import OrderedDict
+from typing import Dict, List, Tuple, Any, OrderedDict as T_OrderedDict
+# Third party modules
+from fsLogger import SimpleLogger, Logger
 # Local modules
+from . import Client, BaseRPCError, __version__
 # Program
-from .client import Client, Request, FEIterator
+PUB_ENV_NAME        = "FECLI_PUBKEY"
+SEC_ENV_NAME        = "FECLI_SECKEY"
+CACHEPATH_ENV_NAME  = "FECLI_CACHE_PATH"
+DISCACHE_ENV_NAME   = "FECLI_CACHE_DISABLE"
+CONVERTHEX_ENV_NAME = "FECLI_CONVERT_HEX"
+STORAGE_FILE        = os.getenv(CACHEPATH_ENV_NAME, "{}/feclicache.json".format(tempfile.gettempdir()))
 
-class ClientTest(unittest.TestCase):
-	def test1(self):
-		fec = Client(log=logging.getLogger("test1.Client"))
-		self.assertIs(type(fec), Client)
-		with fec as c:
-			obj = c.request("ping")
-			self.assertIs(type(obj), Request)
-			self.assertEqual(obj.isSuccess(), True)
-			self.assertIs(type(obj.get()), int)
-	def test2(self):
-		fec = Client(log=logging.getLogger("test2.Client"))
-		self.assertIs(type(fec), Client)
-		obj = fec.request("ping")
-		self.assertIs(type(obj), Request)
-		self.assertEqual(obj.isSuccess(), True)
-		self.assertIs(type(obj.get()), int)
-	def test3(self):
-		fec = Client(log=logging.getLogger("test3.Client"))
-		objs = fec.request("ping"), fec.request("ping")
-		fec.socket.close()
-		for obj in objs:
-			self.assertIs(type(obj.get()), int)
-	def test4(self):
-		from itertools import islice
-		fec = Client(log=logging.getLogger("test4.Client"))
-		inputAddresses = [
-			"0x04222cdcba67350ae6ccf038dfb335648bb439d64b212dd1cd3a5ee112ff76de25d026214c36877577fd9eb4fafa6d52100367256f54157be4b339a8f49837206e",
-			"0x04da43d782c6506b926e9f5f7627ff62e8fc1e3c55ac5d22729a600743cfb98e0c2376ccd2d636ceb45a5a8630d31ff14253a60ffd2aabce6036b766ac73d4013b",
-			"0x047e3d8d5a05808cb46089dc7cc78633b5b2f8760f9a8c9a54736980348c8a2b05f72840038f8475178e4265ae30c1b1f25a3d3c7806c18cea38111dc9ba596cd5",
-			"0x04c3f849fb3dcc29a4c1b02a6003ae68f9536182ad3a027f18548754e1c4eac3a31d3fb4f7ce5eb129d78bbe04d05bfc52599ff756c858f50e3bfc0c11074842c2",
-			"0x044889c277d5191153701e0e686d6388c7e427087f716b079d8697583cba7cd6c66ca44791286cc5a69eb6b61ef9fb88a4315ba6bac75d17ec114d2168bedebda7",
-			"0x04b5cc3e2c3ab73de6445c9adbe67e189a3acaa95aa0a328705c42d4cff747b0b2e3f63ad0ff231d7598d98a0b6d5ed199ec2831928bff1e9ee59de7dea9b8f6a5",
-			"0x04da40df988e0b0f0dff125cce7b7a120b870641fa95147d96513334111c852b5c1c36b5661c56034a00fba43c23112f309016fd08a572a9cd8e15d401f2732461",
-			"0x045d4944869283654e775307eb4ddfdc0d261395a4bf9c76916bc09f2b2e534a7051331a433c0eb6db01448fb1c752b69a80c79e4ab4fc2976810b57e1e4660b7a",
-			"0x045af7f44a5bb9938dbeb5130e8c6e42fbb3196f4fcec508bce8d5eae3404c1ae65a6d2522c53d9d67d4b6d315b15ae2a13c8be985afb3c3113c821723075c48d7",
-			"0x0480dc2647ef1aed071be6092c16c7f936f04008c3d4ccedd6ef4b380058cec5e1e6890d7a6c542604ec72422612d82b055e149e3e28c10335576ca2e578a15268",
-		]
-		it = fec.createIterator("iterTransactionInputs", "btc", "0x8897ea9ceaf18a546cdc513b9179bae31a462ee5bf47818eb7ba909082d11777", chunks=2)
-		self.assertIs(type(it), FEIterator)
-		for i, (key, data) in islice(enumerate(it), 3):
-			self.assertEqual(inputAddresses[i], data["address"])
-		for i, (key, data) in islice(enumerate(it, 3), 1):
-			self.assertEqual(inputAddresses[i], data["address"])
-		it = fec.createIterator("iterTransactionInputs", "btc", "0x8897ea9ceaf18a546cdc513b9179bae31a462ee5bf47818eb7ba909082d11777", fromKey=key, chunks=2)
-		for i, (key, data) in enumerate(it, 4):
-			self.assertEqual(inputAddresses[i], data["address"])
-	def test5(self):
-		class Dummy:
-			def do(self, c):
-				for i in range(5):
-					c.request("ping").get()
-		from itertools import islice
-		fec = Client(log=logging.getLogger("test5.Client"))
-		objs = [ fec.request("ping") for i in range(5) ]
-		for obj in objs:
-			obj.get()
-		self.assertEqual( 5, len(list(fec.requests.itervaluerefs())) )
-		objs = None
-		self.assertNotEqual( 5, len(list(fec.requests.itervaluerefs())) )
-		fec.clear()
-		d = Dummy()
-		d.do(fec)
-		del d
-		self.assertEqual( 0, len(list(fec.requests.itervaluerefs())) )
-	def test6(self):
-		fec = Client(log=logging.getLogger("test6.Client"), compression=False)
-		objs = [fec.request("ping"), fec.request("ping")]
-		fec.connect()
-		objs.append(fec.request("ping"))
-		fec.socket.close()
-		for obj in objs:
-			self.assertIs(type(obj.get()), int)
-	def test7(self):
-		fec = Client(log=logging.getLogger("test7.Client"), compression=False)
-		objs = [fec.request("ping"), fec.request("ping")]
-		fec.connect()
-		objs.append(fec.request("ping"))
-		for obj in objs:
-			self.assertIs(type(obj.get()), int)
-	def test8(self):
-		fec = Client("a344613fe3d9ea517ffa0e89e645cdbc", "417e9e027bcd7efb89d250a7cbf701b4", log=logging.getLogger("test8.Client"), compression=False)
-		obj = fec.request("sleepWell", [1])
-		if obj.isSuccess():
-			self.assertEqual(obj.get(), True)
+__doc__ = """Fusion Explorer command line interface v{version}
+Copyright (C) 2021 Fusion Solutions KFT <contact@fusionsolutions.io>
+To get license use:
+  {selfName} --version
 
-logging.basicConfig(format='[%(levelname).3s][%(asctime)s][%(name)s]: %(message)s', level=logging.INFO)
-unittest.main(verbosity=0)
+Use optional environment keys {PUB_ENV_NAME} for public key and {SEC_ENV_NAME} for secret. If you use you need set both.
+  For set:
+	export {PUB_ENV_NAME}="YOUR_PUBLIC_KEY" {SEC_ENV_NAME}="YOUR_SECRET_KEY"
+  For unset:
+	unset {PUB_ENV_NAME} {SEC_ENV_NAME}
+
+All numbers will be converted into decimal string, but you can use {CONVERTHEX_ENV_NAME} enviroment if you want in hexadecimal:
+  export {CONVERTHEX_ENV_NAME}="1"
+
+Available bitmasks:
+{bitmasks}
+
+  Example usage:
+    BLOCK_EXP,BLOCKLOGS_COUNT,TX_HASH
+  or just like a number:
+    1280
+
+Method list and bitmask keys are downloaded from the server and are stored in {STORAGE_FILE} file.
+For overwrite cache location use:
+  export {CACHEPATH_ENV_NAME}="/absolute/path/to/file"
+To refresh the cache use:
+  {selfName} help
+To disable cache run:
+  export {DISCACHE_ENV_NAME}=1
+
+Usage:
+  {selfName} [--debug] METHOD [PARAMETERS]
+
+You can set every parameter as keyword parameter like `PARAMETER_NAME=VALUE` example:
+  {selfName} getBlockByHeight btc height=1 bitmask=BLOCK_EXP,TX_HASH
+
+Methods:"""
+
+class CLIError(Exception): pass
+
+class LevelBitmask:
+	data:T_OrderedDict[str, Tuple[int, int, str]] = OrderedDict()
+	@classmethod
+	def parseByName(cls, data:str) -> int:
+		r = 0
+		for name in data.split(","):
+			r |= cls.data[name][0]
+		return r
+
+class Parameters:
+	@staticmethod
+	def _bool(data:str) -> bool:
+		if data == "1" or data.lower() == "true":
+			return True
+		elif data == "0" or data.lower() == "false":
+			return False
+		raise ValueError
+	@staticmethod
+	def _dict(data:str) -> Any:
+		return json.loads(data)
+	@staticmethod
+	def _bytes(data:str) -> bytes:
+		if data[:2].lower() == "0x":
+			data = data[2:]
+		return bytes.fromhex(data)
+	@staticmethod
+	def _any(data:str) -> Any:
+		return data
+	@staticmethod
+	def _bitmask(data:str) -> int:
+		if data.isdigit():
+			return int(data)
+		else:
+			try:
+				return LevelBitmask.parseByName(data)
+			except KeyError as err:
+				raise CLIError("Bitmask `{}` not found" .format(err))
+	@staticmethod
+	def _hex(data:str) -> Any:
+		data = data.lower()
+		if data[:2] != "0x":
+			return "0x"+data
+		if not re.match("0x[0-9a-f]", data, re.I):
+			raise KeyError
+		return data
+	@classmethod
+	def parseType(cls, name:str, typ:str) -> Any:
+		if name == "bitmask":
+			return cls._bitmask
+		return {
+			"str":str,
+			"bytes":cls._bytes,
+			"int":int,
+			"bool":cls._bool,
+			"dict":cls._dict,
+			"list":cls._dict,
+			"hex":cls._hex,
+		}.get(typ, cls._any)
+	@classmethod
+	def build(cls, methodParams:Tuple[str, str, Any], args:List[Any], kwargs:Dict[str, Any]) -> Dict[str, Any]:
+		ret = {}
+		for (name, typ, opt), arg in zip(methodParams, args):
+			ret[ name ] = cls.parseType(name, typ)(arg)
+		for key, val in kwargs.items():
+			if key in ret:
+				raise CLIError("Duplicate parameter: {}".format(key))
+			for name, typ, opt in methodParams:
+				if name.lower() == key.lower():
+					try:
+						ret[ name ] = cls.parseType(name, typ)(val)
+					except CLIError as err:
+						raise err from None
+					except:
+						raise CLIError("Parsing input for parameter `{}` has been failed", name)
+					break
+			else:
+				raise CLIError("Unknown parameter: {}".format(key))
+		return ret
+
+def printResult(r:Any) -> None:
+	if type(r) in [dict, list]:
+		print(json.dumps(r, indent=4, sort_keys=True, ensure_ascii=False))
+	else:
+		print(r)
+
+def main() -> None:
+	inputs:List[str] = []
+	_inputs = sys.argv[:]
+	selfName = os.path.basename(_inputs.pop(0))
+	#
+	s = False
+	for inp in _inputs:
+		if not s:
+			if not inp.startswith("--"):
+				s = True
+			if inp == "--version":
+				return printResult(__version__)
+			elif inp == "--debug":
+				SimpleLogger()
+				continue
+		inputs.append(inp)
+	if inputs:
+		method = inputs.pop(0).lower()
+	else:
+		method = ""
+	args:List[Any] = []
+	kwargs:Dict[str, Any] = {}
+	for inp in inputs:
+		sepPos = inp.find("=")
+		if sepPos == -1:
+			if kwargs:
+				raise CLIError("Arguments must be in front of keyword arguments")
+			args.append(inp)
+		else:
+			kwargs[inp[:sepPos]] = inp[sepPos+1:]
+	#
+	with Client(
+		os.getenv(PUB_ENV_NAME, None),
+		os.getenv(SEC_ENV_NAME, None),
+		convertNumbers="hex" if os.getenv(CONVERTHEX_ENV_NAME, "0") == "1" else "str",
+		log=Logger("Client")
+	) as c:
+		methods = {}
+		if os.getenv(DISCACHE_ENV_NAME, "0") != "1" and not (method == "help" and not args and not kwargs):
+			try:
+				methods, _bitmasks = json.load(open(STORAGE_FILE, 'rt'))
+				LevelBitmask.data = OrderedDict(_bitmasks)
+			except:
+				pass
+		if not methods:
+			response = c.request("getCLIData")
+			if not response.isSuccess():
+				raise CLIError("Loading method list failed")
+			_methods, _bitmasks = response.get()
+			for m in _methods:
+				methods[m["name"].lower()] = {
+					"name":m["name"],
+					"desc":m["desc"],
+					"parameters":[ [ param["name"], param["type"], param["optional"] ] for param in m["parameters"] ],
+				}
+			for n, d in _bitmasks:
+				LevelBitmask.data[n] = d
+			if not os.getenv(DISCACHE_ENV_NAME, False):
+				try:
+					json.dump((methods, LevelBitmask.data.items()), open(STORAGE_FILE, 'wt'))
+				except:
+					pass
+		#
+		if method in ["", "help"] and not args and not kwargs:
+			ret = [__doc__.format(
+				version=__version__,
+				PUB_ENV_NAME=PUB_ENV_NAME,
+				SEC_ENV_NAME=SEC_ENV_NAME,
+				STORAGE_FILE=STORAGE_FILE,
+				DISCACHE_ENV_NAME=DISCACHE_ENV_NAME,
+				CACHEPATH_ENV_NAME=CACHEPATH_ENV_NAME,
+				CONVERTHEX_ENV_NAME=CONVERTHEX_ENV_NAME,
+				selfName=selfName,
+				bitmasks="\n".join(
+					map(
+						lambda x: "{:<32}{}".format("  {0:>{stack}}{name}".format("", name=x[0], stack=x[1][1]*4), x[1][2]),
+						LevelBitmask.data.items(),
+					)
+				),
+			)]
+			for name in sorted(methods.keys()):
+				m = methods[name]
+				ret.append(
+					"  {} {}\n      {}\n".format(
+						m["name"],
+						" ".join([
+							("{o1}({type}){name}{o2}").format(
+								type=typ.upper(),
+								name=name,
+								o1="[" if opt else "",
+								o2="]" if opt else ""
+							) for name,typ,opt in m["parameters"]
+						]),
+						m["desc"]
+					)
+				)
+			return printResult("\n".join(ret))
+		if method not in methods:
+			raise CLIError("Method not found. For list of methods use `{} help`".format(selfName))
+		response = c.request(
+			methods[method]["name"],
+			[],
+			Parameters.build(
+				methods[method]["parameters"],
+				args,
+				kwargs
+			),
+		)
+		if not response.isSuccess():
+			print("Request failed:")
+		c.close()
+		c.log.debug("RESPONSE UID: {}".format(response.getUID()))
+		return printResult(response.get())
+
+r = None
+c = 0
+try:
+	main()
+except CLIError as err:
+	print("CLI ERROR: {}".format(err))
+except BaseRPCError as err:
+	c = 1
+	printResult(err)
+except KeyboardInterrupt:
+	c = 1
+	print("Keyboard interrupt")
+sys.exit(c)
