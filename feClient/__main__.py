@@ -60,7 +60,7 @@ class LevelBitmask:
 	def parseByName(cls, data:str) -> int:
 		r = 0
 		for name in data.split(","):
-			r |= cls.data[name][0]
+			r |= toInt(cls.data[name][0])
 		return r
 
 class Parameters:
