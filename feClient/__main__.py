@@ -21,9 +21,9 @@ To get license use:
 
 Use optional environment keys {PUB_ENV_NAME} for public key and {SEC_ENV_NAME} for secret. If you use you need set both.
   For set:
-	export {PUB_ENV_NAME}="YOUR_PUBLIC_KEY" {SEC_ENV_NAME}="YOUR_SECRET_KEY"
+    export {PUB_ENV_NAME}="YOUR_PUBLIC_KEY" {SEC_ENV_NAME}="YOUR_SECRET_KEY"
   For unset:
-	unset {PUB_ENV_NAME} {SEC_ENV_NAME}
+    unset {PUB_ENV_NAME} {SEC_ENV_NAME}
 
 All numbers will be converted into decimal string, but you can use {CONVERTHEX_ENV_NAME} enviroment if you want in hexadecimal:
   export {CONVERTHEX_ENV_NAME}="1"
@@ -214,7 +214,7 @@ def main() -> None:
 				selfName=selfName,
 				bitmasks="\n".join(
 					map(
-						lambda x: "{:<32}{}".format("  {0:>{stack}}{name}".format("", name=x[0], stack=x[1][1]*4), x[1][2]),
+						lambda x:"{:<32}{}".format("  {0:>{stack}}{name}".format("", name=x[0], stack=int(x[1][1])*4), x[1][2]),
 						LevelBitmask.data.items(),
 					)
 				),
