@@ -106,7 +106,7 @@ class Parameters:
 		return {
 			"str":str,
 			"bytes":cls._bytes,
-			"int":int,
+			"int":toInt,
 			"bool":cls._bool,
 			"dict":cls._dict,
 			"list":cls._dict,
@@ -138,6 +138,15 @@ def printResult(r:Any) -> None:
 		print(json.dumps(r, indent=4, sort_keys=True, ensure_ascii=False))
 	else:
 		print(r)
+
+def toInt(input:Any) -> int:
+	if type(input) is int:
+		return input
+	elif type(input) is str:
+		if input[:2].lower() == "0x":
+			return int(input, 16)
+		return int(input)
+	raise RuntimeError
 
 def main() -> None:
 	inputs:List[str] = []
@@ -203,6 +212,13 @@ def main() -> None:
 					pass
 		#
 		if method in ["", "help"] and not args and not kwargs:
+			bitmaskLines:List[Tuple[str, str]] = [
+				(
+					"{0:>{stack}}{name}".format("", name=bid, stack=toInt(bdet[1])*2),
+					bdet[2],
+				) for bid, bdet in LevelBitmask.data.items()
+			]
+			optimalBitmaskIDColumnLength = max([ len(x[0]) for x in bitmaskLines]) if bitmaskLines else 0
 			ret = [__doc__.format(
 				version=__version__,
 				PUB_ENV_NAME=PUB_ENV_NAME,
@@ -212,12 +228,7 @@ def main() -> None:
 				CACHEPATH_ENV_NAME=CACHEPATH_ENV_NAME,
 				CONVERTHEX_ENV_NAME=CONVERTHEX_ENV_NAME,
 				selfName=selfName,
-				bitmasks="\n".join(
-					map(
-						lambda x:"{:<32}{}".format("  {0:>{stack}}{name}".format("", name=x[0], stack=int(x[1][1])*4), x[1][2]),
-						LevelBitmask.data.items(),
-					)
-				),
+				bitmasks="\n".join(["  {0:<{pad}}    {1}".format(*x, pad=optimalBitmaskIDColumnLength) for x in bitmaskLines]),
 			)]
 			for name in sorted(methods.keys()):
 				m = methods[name]
