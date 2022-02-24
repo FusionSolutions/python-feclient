@@ -9,7 +9,7 @@ pwd = os.path.abspath(os.path.dirname(__file__))
 
 setup(
 	name                          = "python-feclient",
-	version                       = "0.1.1",
+	version                       = "0.1.2",
 	description                   = "Client for Fusion Explorer",
 	keywords                      = "explorer client fusion solutions fusionsolutions fusionexplorer",
 	author                        = "Andor `iFA` Rajci - Fusions Solutions KFT",
@@ -21,15 +21,14 @@ setup(
 	long_description_content_type = "text/markdown",
 	zip_safe                      = False,
 	scripts                       = ["feClient/fexplorer-cli"],
-	python_requires               = ">=3.7.0",
-	install_requires              = ["python-fsrpcclient>=0.1.1"],
+	python_requires               = ">=3.8.0",
+	install_requires              = ["python-fsrpcclient~=0.2.0"],
 	test_suite                    = "feClient.test",
 	package_data                  = { "":["py.typed"] },
 	classifiers                   = [ # https://pypi.org/pypi?%3Aaction=list_classifiers
 		"Development Status :: 4 - Beta",
 		"Topic :: Utilities",
 		"Programming Language :: Python :: 3 :: Only",
-		"Programming Language :: Python :: 3.7",
 		"Programming Language :: Python :: 3.8",
 		"Programming Language :: Python :: 3.9",
 		"License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",

@@ -149,6 +149,7 @@ def toInt(input:Any) -> int:
 	raise RuntimeError
 
 def main() -> None:
+	disableCompression = False
 	inputs:List[str] = []
 	_inputs = sys.argv[:]
 	selfName = os.path.basename(_inputs.pop(0))
@@ -162,6 +163,7 @@ def main() -> None:
 				return printResult(__version__)
 			elif inp == "--debug":
 				SimpleLogger()
+				disableCompression = True
 				continue
 		inputs.append(inp)
 	if inputs:
@@ -183,6 +185,7 @@ def main() -> None:
 		os.getenv(PUB_ENV_NAME, None),
 		os.getenv(SEC_ENV_NAME, None),
 		convertNumbers="hex" if os.getenv(CONVERTHEX_ENV_NAME, "0") == "1" else "str",
+		disableCompression=disableCompression,
 		log=Logger("Client")
 	) as c:
 		methods = {}

@@ -1,20 +1,19 @@
 # Builtin modules
 import os, unittest, socket
 from time import monotonic
-from typing import Type
 # Third party modules
 from fsLogger import SimpleLogger, Logger
-from fsSignal import Signal, BaseSignal
+from fsSignal import Signal, T_Signal
 # Local modules
 from .. import Client, Request, FEIterator
 # Program
 class ClientTest(unittest.TestCase):
-	signal:Type[BaseSignal]
+	signal:T_Signal
 	@classmethod
 	def setUpClass(cls) -> None:
 		if os.environ.get("DEBUG") == "1":
 			SimpleLogger("TRACE")
-		cls.signal = Signal.getSoftSignal()
+		cls.signal = Signal()
 		return None
 	def test_withStatement(self) -> None:
 		with Client(log=Logger("test_withStatement.Client")) as fec:
@@ -48,14 +47,23 @@ class ClientTest(unittest.TestCase):
 			]
 			it = fec.createIterator("iterBlocks", "btc", sortBy="blockheight", chunks=2, bitmask=1)
 			self.assertIs(type(it), FEIterator)
+			i = 0
 			for i, r in islice(enumerate(it), 3):
 				self.assertEqual(data[i], r)
+			else:
+				self.assertGreater(i, 0)
+			i = 0
 			for i, r in islice(enumerate(it, 3), 1):
 				self.assertEqual(data[i], r)
+			else:
+				self.assertGreater(i, 0)
 			#
 			it = fec.createIterator("iterBlocks", "btc", sortBy="blockheight", fromKey=data[4][0], chunks=2, bitmask=1)
+			i = 0
 			for i, r in islice(enumerate(it, 5), 3):
 				self.assertEqual(data[i], r)
+			else:
+				self.assertGreater(i, 0)
 			self.assertTrue(it.hasNext())
 			self.assertEqual(it.next(), data[8])
 			#
