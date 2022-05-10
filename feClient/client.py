@@ -81,10 +81,10 @@ class Client(_Client):
 		self.pubkey     = states["pubkey"]
 		self.seckey     = states["seckey"]
 		self.timeWindow = states["timeWindow"]
-	def _sendToSocket(self, payload:bytes, path:str="/", extraHttpHeaders:Dict[str, str]={}) -> None:
+	def _sendToSocket(self, payload:bytes, httpMethod:str="POST", path:str="/", httpHeaders:Dict[str, str]={}) -> None:
 		if self.seckey:
 			ts = int(time()+self.timeWindow).to_bytes(4, "big")
-			extraHttpHeaders["X-Auth"] = b"".join((
+			httpHeaders["X-Auth"] = b"".join((
 				ts,
 				self.pubkey,
 				hmac.digest(
@@ -97,7 +97,7 @@ class Client(_Client):
 					"SHA256"
 				)
 			)).hex()
-		super()._sendToSocket(payload, path, extraHttpHeaders)
+		super()._sendToSocket(payload, httpMethod, path, httpHeaders)
 	def clone(self, **kwargs:Any) -> Client:
 		opts:Dict[str, Any] = {
 			"projectPublicKey":  self.pubkey,
