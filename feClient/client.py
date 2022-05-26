@@ -8,7 +8,7 @@ from typing import Optional, Any, Union, List, Dict, Tuple
 from fsRPCClient import Client as _Client
 from fsRPCClient.exceptions import InitializationError, ResponseError
 from fsRPCClient.utils import hexToBytes
-from fsLogger import Logger
+from fsLogger import Logger, T_Logger
 from fsSignal import T_Signal
 # Local modules
 # Program
@@ -20,7 +20,7 @@ class Client(_Client):
 	def __init__(self, projectPublicKey:Optional[Union[str, bytes]]=None, projectSecretKey:Optional[Union[str, bytes]]=None,
 	timeWindow:int=60, convertNumbers:Optional[str]=None, retryCount:int=10, retryDelay:Union[int, float]=5,
 	connectTimeout:Union[int, float]=15, transferTimeout:Union[int, float]=320, disableCompression:bool=False,
-	log:Optional[Logger]=None, signal:Optional[T_Signal]=None, target:Tuple[str, int]=("api.fusionexplorer.io", 443),
+	log:Optional[T_Logger]=None, signal:Optional[T_Signal]=None, target:Tuple[str, int]=("api.fusionexplorer.io", 443),
 	httpHost:Optional[str]=None, ssl:bool=True) -> None:
 		super().__init__(
 			protocol           = "TCPv4:HTTP:JSONRPC-P",
