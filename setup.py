@@ -9,7 +9,7 @@ pwd = os.path.abspath(os.path.dirname(__file__))
 
 setup(
 	name                          = "python-feclient",
-	version                       = "0.1.3",
+	version                       = "0.1.4",
 	description                   = "Client for Fusion Explorer",
 	keywords                      = "explorer client fusion solutions fusionsolutions fusionexplorer",
 	author                        = "Andor `iFA` Rajci - Fusions Solutions KFT",
