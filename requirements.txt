@@ -1,1 +1,1 @@
-python-fsrpcclient~=0.3.0
+python-fsrpcclient~=0.4.0
