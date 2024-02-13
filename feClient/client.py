@@ -18,10 +18,10 @@ class Client(_Client):
 	pubkey:bytes
 	seckey:bytes
 	def __init__(self, projectPublicKey:Optional[Union[str, bytes]]=None, projectSecretKey:Optional[Union[str, bytes]]=None,
-	timeWindow:int=60, convertNumbers:Optional[str]=None, retryCount:int=10, retryDelay:Union[int, float]=5,
-	connectTimeout:Union[int, float]=15, transferTimeout:Union[int, float]=320, disableCompression:bool=False,
-	log:Optional[T_Logger]=None, signal:Optional[T_Signal]=None, target:Tuple[str, int]=("api.fusionexplorer.io", 443),
-	httpHost:Optional[str]=None, ssl:bool=True) -> None:
+	timeWindow:int=60, retryCount:int=10, retryDelay:Union[int, float]=5, connectTimeout:Union[int, float]=15,
+	transferTimeout:Union[int, float]=320, disableCompression:bool=False, log:Optional[T_Logger]=None,
+	signal:Optional[T_Signal]=None, target:Tuple[str, int]=("api.fusionexplorer.io", 443), httpHost:Optional[str]=None,
+	ssl:bool=True) -> None:
 		super().__init__(
 			protocol           = "TCPv4:HTTP:JSONRPC-P",
 			target             = target,
@@ -33,7 +33,6 @@ class Client(_Client):
 			httpHost           = httpHost,
 			disableCompression = disableCompression,
 			useBulkRequest     = True,
-			convertNumbers     = convertNumbers,
 			log                = log or Logger("FusionExplorer"),
 			signal             = signal,
 		)
@@ -103,7 +102,6 @@ class Client(_Client):
 			"projectPublicKey":  self.pubkey,
 			"projectSecretKey":  self.seckey,
 			"timeWindow":        self.timeWindow,
-			"convertNumbers":    self.convertNumbers,
 			"retryDelay":        self.retryDelay,
 			"retryCount":        self.retryCount,
 			"connectTimeout":    self.connectTimeout,
