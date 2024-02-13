@@ -11,7 +11,6 @@ PUB_ENV_NAME        = "FECLI_PUBKEY"
 SEC_ENV_NAME        = "FECLI_SECKEY"
 CACHEPATH_ENV_NAME  = "FECLI_CACHE_PATH"
 DISCACHE_ENV_NAME   = "FECLI_CACHE_DISABLE"
-CONVERTHEX_ENV_NAME = "FECLI_CONVERT_HEX"
 STORAGE_FILE        = os.getenv(CACHEPATH_ENV_NAME, "{}/feclicache.json".format(tempfile.gettempdir()))
 
 __doc__ = """Fusion Explorer command line interface v{version}
@@ -24,9 +23,6 @@ Use optional environment keys {PUB_ENV_NAME} for public key and {SEC_ENV_NAME} f
     export {PUB_ENV_NAME}="YOUR_PUBLIC_KEY" {SEC_ENV_NAME}="YOUR_SECRET_KEY"
   For unset:
     unset {PUB_ENV_NAME} {SEC_ENV_NAME}
-
-All numbers will be converted into decimal string, but you can use {CONVERTHEX_ENV_NAME} enviroment if you want in hexadecimal:
-  export {CONVERTHEX_ENV_NAME}="1"
 
 Available bitmasks:
 {bitmasks}
@@ -184,7 +180,6 @@ def main() -> None:
 	with Client(
 		os.getenv(PUB_ENV_NAME, None),
 		os.getenv(SEC_ENV_NAME, None),
-		convertNumbers="hex" if os.getenv(CONVERTHEX_ENV_NAME, "0") == "1" else "str",
 		disableCompression=disableCompression,
 		log=Logger("Client")
 	) as c:
@@ -229,7 +224,6 @@ def main() -> None:
 				STORAGE_FILE=STORAGE_FILE,
 				DISCACHE_ENV_NAME=DISCACHE_ENV_NAME,
 				CACHEPATH_ENV_NAME=CACHEPATH_ENV_NAME,
-				CONVERTHEX_ENV_NAME=CONVERTHEX_ENV_NAME,
 				selfName=selfName,
 				bitmasks="\n".join(["  {0:<{pad}}    {1}".format(*x, pad=optimalBitmaskIDColumnLength) for x in bitmaskLines]),
 			)]
